@@ -1,0 +1,35 @@
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# env
+.venv/
+venv/
+mfo_env/
+
+# logs & runs
+runs/
+wandb/
+logs/
+*.log
+
+# checkpoints & data
+*.pth
+*.pt
+*.ckpt
+checkpoints/
+data/
+datasets/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
