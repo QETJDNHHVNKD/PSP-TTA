@@ -1,11 +1,3 @@
-
-"""
-Created on Wed Apr 21 15:04:32 2021
-
-@author: Chnn
-"""
-
-
 import random
 from PIL import Image, ImageEnhance
 
