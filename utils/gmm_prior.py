@@ -1,4 +1,4 @@
-# gmm_prior.py
+
 import math
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple, Union
@@ -26,12 +26,7 @@ class OrgStats:
 
 
 class GMMPrior(torch.nn.Module):
-    """
-    Organ-wise diagonal GMM prior in shape space z_shape.
-    Supports:
-      - conditional prior: log p(z | organ_id)
-      - US-mix prior:      log sum_org pi_org * p(z | org)
-    """
+
     def __init__(
         self,
         org_gmms: Dict[int, DiagGMMParams],
@@ -43,7 +38,7 @@ class GMMPrior(torch.nn.Module):
         self.org_ids = sorted(list(org_gmms.keys()))
         self.eps_std = eps_std
 
-        # Register as buffers so they move with .to(device)
+
         self._org_stats_mean = {}
         self._org_stats_std = {}
         self._org_gmm = {}
@@ -72,8 +67,7 @@ class GMMPrior(torch.nn.Module):
 
     @staticmethod
     def _diag_gaussian_logprob(x: torch.Tensor, mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
-        # x: [B,D], mean/var: [M,D] -> output [B,M]
-        # log N(x; mean, var_diag)
+
         D = x.shape[-1]
         x_ = x.unsqueeze(1)  # [B,1,D]
         log_det = torch.log(var).sum(dim=-1)  # [M]
@@ -92,30 +86,27 @@ class GMMPrior(torch.nn.Module):
         """
         zt = self._standardize(z, organ_id)
         w_name, mu_name, var_name = self._org_gmm[organ_id]
-        w = getattr(self, w_name)      # [M]
-        mu = getattr(self, mu_name)    # [M,D]
-        var = getattr(self, var_name)  # [M,D]
-        # var = var.clamp_min(1e-4)  # ✅ 方差下限，避免过尖（你也可以试 1e-3）
-        var = var.clamp_min(1e-3)  # 甚至 5e-3 也可以试
+        w = getattr(self, w_name)    
+        mu = getattr(self, mu_name)   
+        var = getattr(self, var_name) 
+        # var = var.clamp_min(1e-4)  
+        var = var.clamp_min(1e-3) 
 
 
-        # log_comp = self._diag_gaussian_logprob(zt, mu, var)  # [B,M]
-        # log_mix = torch.log(w.clamp_min(1e-12)).unsqueeze(0) # [1,M]
-        # # return _logsumexp(log_mix + log_comp, dim=1)         # [B]
-        log_comp = self._diag_gaussian_logprob(zt, mu, var)  # [B,M]
-        log_mix = torch.log(w.clamp_min(1e-12)).unsqueeze(0)  # [1,M]
+        # log_comp = self._diag_gaussian_logprob(zt, mu, var) 
+        # log_mix = torch.log(w.clamp_min(1e-12)).unsqueeze(0)
+        # # return _logsumexp(log_mix + log_comp, dim=1)         
+        log_comp = self._diag_gaussian_logprob(zt, mu, var)  
+        log_mix = torch.log(w.clamp_min(1e-12)).unsqueeze(0) 
 
-        # ✅ 加在这里：standardize 的 Jacobian 常数项
-        std = getattr(self, self._org_stats_std[organ_id]).clamp_min(self.eps_std)  # [D]
-        log_jac = -torch.log(std).sum()  # scalar，会自动 broadcast 到 [B]
+       
+        std = getattr(self, self._org_stats_std[organ_id]).clamp_min(self.eps_std) 
+        log_jac = -torch.log(std).sum()  
 
         return _logsumexp(log_mix + log_comp, dim=1) + log_jac  # [B]
 
     def log_prob_mix(self, z: torch.Tensor) -> torch.Tensor:
-        """
-        US-mix prior:
-          log p_mix(z) = log sum_org pi_org * p(z|org)
-        """
+
         logps = []
         for oid in self.org_ids:
             logps.append(self.log_prob_conditional(z, oid))  # [B]
@@ -129,17 +120,13 @@ class GMMPrior(torch.nn.Module):
         organ_id: Optional[Union[int, torch.Tensor]] = None,
         reduction: str = "mean",
     ) -> torch.Tensor:
-        """
-        - organ_id is None -> mix prior
-        - organ_id is int  -> that organ conditional
-        - organ_id is Tensor [B] -> per-sample conditional
-        """
+   
         if organ_id is None:
             lp = self.log_prob_mix(z)
         elif isinstance(organ_id, int):
             lp = self.log_prob_conditional(z, organ_id)
         else:
-            # organ_id: [B]
+    
             organ_id = organ_id.to(z.device).long()
             out = torch.empty((z.shape[0],), device=z.device, dtype=z.dtype)
             for oid in organ_id.unique().tolist():
@@ -193,9 +180,5 @@ class GMMPrior(torch.nn.Module):
 
 
 def extract_z_shape_from_zraw(z_raw: torch.Tensor, renderer) -> torch.Tensor:
-    """
-    renderer: your PolarFourierRenderer (shape_loop.renderer)
-    returns z_shape = [r0, a..., b...] in *physical* scale, [B, 1+2K]
-    """
     p, cx, cy, r0, a, b = renderer.decode(z_raw)
     return torch.cat([r0, a, b], dim=1)
