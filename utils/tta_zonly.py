@@ -11,28 +11,23 @@ class TTACfg:
     steps: int = 5
     lr: float = 5e-2
 
-    # pseudo-label selection
     thr_hi: float = 0.95        
     thr_lo: float = 0.90       
     max_ratio: float = 0.20       
     w_pl: float = 0.2            
 
-    # regularizers
     beta_cycle: float = 1.0       
     lambda0: float = 1.0         
     gamma0: float = 0.2          
     w_area: float = 0.05         
     nll_scale: float = 1.0        
 
-    # drift protection (raw z clamp)
     clip_p: float = 6.0
     clip_c: float = 4.0
     clip_r: float = 6.0
     clip_ab: float = 4.0
 
-    # stop/skip protection
-    min_selected_ratio: float = 1e-4  # if almost no confident pixels, stop early
-
+    min_selected_ratio: float = 1e-4  
 
 def _topk_cap(w: torch.Tensor, max_ratio: float) -> torch.Tensor:
 
@@ -126,7 +121,7 @@ def tta_z_only(
         z0, m0 = forward_z_m(model, shape_loop, img)
 
     z = z0.detach().clone().requires_grad_(True)
-    area0 = m0.detach().mean(dim=(1, 2, 3), keepdim=False)  # [B]
+    area0 = m0.detach().mean(dim=(1, 2, 3), keepdim=False)  
 
     opt = torch.optim.Adam([z], lr=cfg.lr)
 
@@ -138,15 +133,12 @@ def tta_z_only(
 
         opt.zero_grad(set_to_none=True)
 
-        m = shape_loop.renderer(z)  # [B,1,H,W], sigmoid 后
-
+        m = shape_loop.renderer(z)  
    
         lpl, st = _weighted_pl_loss(m, thr=thr, max_ratio=cfg.max_ratio)
 
-   
-        z_hat = shape_loop.mask_encoder(m)  # [B,z_dim]
+        z_hat = shape_loop.mask_encoder(m)  
         l_cycle = (z - z_hat.detach()).pow(2).mean()
-
 
         l_prior = torch.tensor(0.0, device=device)
         if (prior is not None) and (extract_z_shape_fn is not None):
