@@ -46,7 +46,7 @@ def _topk_cap(w: torch.Tensor, max_ratio: float) -> torch.Tensor:
 def _weighted_pl_loss(prob: torch.Tensor, thr: float, max_ratio: float):
     
     prob = prob.clamp(1e-6, 1 - 1e-6)
-    conf = torch.maximum(prob, 1.0 - prob)  # [B,1,H,W]
+    conf = torch.maximum(prob, 1.0 - prob)  
 
     w0 = ((conf - thr) / (1.0 - thr)).clamp(0.0, 1.0)
     w0 = _topk_cap(w0, max_ratio=max_ratio)
@@ -89,7 +89,6 @@ def _weighted_pl_loss(prob: torch.Tensor, thr: float, max_ratio: float):
 
 
 def _clamp_z_raw_(z: torch.Tensor, cfg: TTACfg):
-    # z layout: [p, cx, cy, r0, a1..aK, b1..bK]
     z[:, 0].clamp_(-cfg.clip_p, cfg.clip_p)
     z[:, 1:3].clamp_(-cfg.clip_c, cfg.clip_c)
     z[:, 3].clamp_(-cfg.clip_r, cfg.clip_r)
