@@ -59,10 +59,7 @@ def rampup_sigmoid(x: float):
     return math.exp(-5.0 * (1.0 - x) * (1.0 - x))
 
 def appearance_aug(x, strength=1.0):
-    """
-    只做外观扰动：亮度/对比度/噪声/轻微模糊（不做旋转裁剪等几何变换）
-    x: [B,C,H,W]
-    """
+
     if strength <= 0:
         return x
 
@@ -70,24 +67,24 @@ def appearance_aug(x, strength=1.0):
     device = x.device
     dtype = x.dtype
 
-    # 亮度 & 对比度（逐样本）
+
     br = (torch.rand(B, 1, 1, 1, device=device, dtype=dtype) * 0.2 - 0.1) * strength
     ct = (torch.rand(B, 1, 1, 1, device=device, dtype=dtype) * 0.3 + 0.85) ** strength
 
     x2 = x * ct + br
 
-    # 高斯噪声
+ 
     prob_noise = 0.7 * float(min(1.0, strength))
     if torch.rand(1).item() < prob_noise:
         sigma = (torch.rand(B, 1, 1, 1, device=device, dtype=dtype) * 0.03) * strength
         x2 = x2 + torch.randn_like(x2) * sigma
 
-    # 轻微模糊（depthwise conv）
+
     if torch.rand(1).item() < 0.25 * float(min(1.0, strength)):
         k = 3
-        # 简单均值核（足够“外观扰动”，不引入几何变化）
+     
         kernel = torch.ones(1, 1, k, k, device=device, dtype=dtype) / (k * k)
-        # depthwise: 对每个 channel 独立
+       
         C = x2.shape[1]
         kernel = kernel.repeat(C, 1, 1, 1)
         x2 = F.conv2d(x2, kernel, padding=k//2, groups=C)
@@ -95,12 +92,7 @@ def appearance_aug(x, strength=1.0):
     return x2
 
 def random_translate_theta(B, device, max_px_frac=0.08):
-    """
-    max_px_frac: 相对图像尺寸的最大平移比例(像素域)
-    返回 theta, theta_inv: [B,2,3]
-    """
-    # affine_grid 的平移是在 [-1,1] 归一化坐标系里
-    # 像素平移比例 f -> 归一化平移约等于 2f
+    
     t = 2.0 * max_px_frac
     tx = (torch.rand(B, device=device) * 2 - 1) * t
     ty = (torch.rand(B, device=device) * 2 - 1) * t
@@ -147,9 +139,6 @@ def warp_with_theta(x, theta, out_hw=None, mode="bilinear", padding_mode="zeros"
     return F.grid_sample(x, grid, mode=mode, padding_mode=padding_mode, align_corners=False)
 
 
-# -----------------------
-# batch buffer to enforce 1:1
-# -----------------------
 class MixBuffer:
     def __init__(self):
         self.us = None   # tuple of tensors
@@ -161,7 +150,7 @@ class MixBuffer:
         return tuple(torch.cat([o, n], dim=0) for o, n in zip(old, new))
 
     def push(self, IMG, MSK1ch, setseq, derm_id=3):
-        # IMG: [B,C,H,W], MSK1ch: [B,1,H,W] or [B,H,W], setseq: [B]
+
         mask_derm = (setseq == derm_id)
         mask_us = ~mask_derm
 
@@ -189,14 +178,10 @@ class MixBuffer:
 
 
 def _bn_adapt_freeze_affine(m: nn.Module):
-    """BN in train mode (update running stats), but freeze affine params.
 
-    UDA / domain shift 下，完全 eval() 的 BN 往往会锁死在 source 统计，DERM 会吃亏；
-    这里让 running_mean/var 跟着混合 batch 慢慢适配，同时避免 weight/bias 被训练带偏。
-    """
     if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)):
         m.train()
-        # 更小的 momentum 更稳（可选）
+
         try:
             m.momentum = 0.01
         except Exception:
@@ -229,7 +214,7 @@ def main():
     parser.add_argument("--stage1_ckpt", default=r"...\best_model.pth", type=str)
     parser.add_argument("--prior_path", type=str)
 
-    # unsup weights
+
     parser.add_argument("--w_inv", default=0.02, type=float)
     parser.add_argument("--w_cons", default=0.005, type=float)
     parser.add_argument("--w_prior0", default=0.01, type=float)
@@ -238,7 +223,7 @@ def main():
     parser.add_argument("--w_cons_bad", type=float, default=0)
     parser.add_argument("--w_prior_bad", type=float, default=0.15)
 
-    # pseudo label
+
     parser.add_argument("--use_pl", action="store_true", default=False)
     parser.add_argument("--pl_start_epoch", default=10, type=int)
     parser.add_argument("--w_pl", default=0.3, type=float)
@@ -312,7 +297,7 @@ def main():
 
     train_loader, val_loader, _ = baseloader(args)
 
-    # ---- build student ----
+
     model = ASF(class_num=2, task_prompt=None, prompt_generator=None, use_anomaly_detection=False).to(device)
 
     model.disable_decoder_dropout = False
@@ -343,7 +328,6 @@ def main():
     for p in prior.parameters():
         p.requires_grad_(False)
 
-
     teacher_model = None
     teacher_shape = None
     if args.use_pl:
@@ -355,7 +339,7 @@ def main():
         set_requires_grad(teacher_model, False)
         set_requires_grad(teacher_shape, False)
 
-    # ---- optimizer ----
+
 
     optimizer = torch.optim.AdamW(
         [
@@ -379,7 +363,7 @@ def main():
         else:
             x = (x - mn) / (mx - mn)
         x = (x * 255.0).clamp(0, 255).byte()
-        return x.permute(1, 2, 0).numpy()  # HWC uint8
+        return x.permute(1, 2, 0).numpy() 
 
     def _overlay(rgb_uint8: np.ndarray, mask01_hw: np.ndarray, alpha=0.45):
 
@@ -555,7 +539,7 @@ def main():
 
 
         epoch_dir = os.path.join(save_root, f"epoch{epoch:03d}")
-        worst_us_dir = os.path.join(epoch_dir, "worst_us")  # 目前未用到，但保留目录
+        worst_us_dir = os.path.join(epoch_dir, "worst_us") 
         os.makedirs(worst_us_dir, exist_ok=True)
 
         worst_derm_dir = {t: os.path.join(epoch_dir, f"worst_derm_thr{t:.2f}") for t in main_thrs}
@@ -663,7 +647,7 @@ def main():
                 panel = Image.fromarray(np.concatenate([img0, gt0, pd0], axis=1))
                 panel.save(os.path.join(worst_derm_dir[t], f"{rank:02d}_dice{d:.3f}_{tag}.png"))
 
-        # ---------- return metrics ----------
+
         def _mean_or_nan(x):
             return float(np.mean(x)) if len(x) > 0 else float("nan")
 
@@ -818,11 +802,11 @@ def main():
         img_d = img_d.to(device, non_blocking=True)
 
         # two appearance views (a stronger, b weaker)
-        x_data = img_d             # CV/area/prior 用原图最稳
+        x_data = img_d            
         x_a = appearance_aug(img_d, strength=0.6)
         x_b = appearance_aug(img_d, strength=0.3)
 
-        # 用 x_data 走一个前向得到 m_data（替代 m1b 做 data term）
+     
         if backbone_grad:
             feats_data = model.forward_features(x_data)
         else:
@@ -854,7 +838,7 @@ def main():
         conf_full = conf_pix.mean(dim=(1, 2, 3))
         conf = torch.where(band_sum > 0, conf_band, conf_full)  # [B]
 
-        # agreement-based confidence (downweights inconsistent predictions under aug)
+       
         agree = 1.0 - (m1a.detach() - m1b.detach()).abs().mean(dim=(1, 2, 3))
         conf = (0.5 * conf + 0.5 * agree.clamp(0.0, 1.0)).clamp(0.0, 1.0)
 
@@ -872,7 +856,6 @@ def main():
             B = x_b.shape[0]
             theta, theta_inv = random_translate_theta(B, x_b.device, max_px_frac=args.geo_trans)
 
-            # 图像平移：用 border padding，避免黑边
             x_g = warp_with_theta(x_b, theta, out_hw=x_b.shape[-2:], padding_mode="border")
 
             if backbone_grad:
@@ -1029,9 +1012,6 @@ def main():
             _, mT, _, _ = teacher_shape(feats_t)
             prob = mT.clamp(0.0, 1.0)
 
-
-
-
             fg_ratio = (prob > 0.5).float().mean(dim=(1, 2, 3))  # [B]
 
 
@@ -1039,7 +1019,6 @@ def main():
 
 
             valid4 = valid.float().view(-1, 1, 1, 1)
-
 
 
             conf_pix = torch.maximum(prob, 1.0 - prob)  # [B,1,H,W]
@@ -1057,9 +1036,7 @@ def main():
                 sel.scatter_(1, topi, 1.0)
                 w0 = (flat * sel).view_as(w0)
 
-
             y = (prob > 0.5).float()
-
 
             w0 = w0 * valid4
             y  = y  * valid4
@@ -1102,8 +1079,6 @@ def main():
         bce = (bce_map * w).sum((1, 2, 3)) / wsum.clamp_min(1.0)
 
         bce = (bce * has).sum() / has.sum().clamp_min(1.0)
-
-
 
 
         inter = ((mS * y) * w).sum((1, 2, 3)) * 2.0
@@ -1262,7 +1237,6 @@ def main():
                         ema_update(teacher_model, model, args.ema_decay)
                         ema_update(teacher_shape, shape_loop, args.ema_decay)
 
-                # ----- meters -----
                 loss_meter["us"] += float(loss_us.detach().cpu())
                 loss_meter["unsup"] += float(loss_unsup.detach().cpu())
                 loss_meter["inv"] += float(st_u["inv"].cpu())
@@ -1294,7 +1268,7 @@ def main():
         pbar.close()
         scheduler.step()
 
-        # log avg
+
         denom = max(1, step)
 
         msg = (
