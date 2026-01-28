@@ -14,15 +14,15 @@ def _logsumexp(x: torch.Tensor, dim: int) -> torch.Tensor:
 @dataclass
 class DiagGMMParams:
     # All tensors are torch tensors on the correct device
-    weights: torch.Tensor        # [M]
-    means: torch.Tensor          # [M, D]
-    vars: torch.Tensor           # [M, D]  (diagonal variances)
+    weights: torch.Tensor        
+    means: torch.Tensor         
+    vars: torch.Tensor           iagonal variances)
 
 
 @dataclass
 class OrgStats:
-    mean: torch.Tensor           # [D]
-    std: torch.Tensor            # [D]
+    mean: torch.Tensor          
+    std: torch.Tensor           
 
 
 class GMMPrior(torch.nn.Module):
@@ -63,15 +63,15 @@ class GMMPrior(torch.nn.Module):
 
         mix = torch.tensor([org_mix_weights[oid] for oid in self.org_ids], dtype=torch.float32)
         mix = mix / mix.sum()
-        self.register_buffer("org_mix", mix)  # [O]
+        self.register_buffer("org_mix", mix)  
 
     @staticmethod
     def _diag_gaussian_logprob(x: torch.Tensor, mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
 
         D = x.shape[-1]
-        x_ = x.unsqueeze(1)  # [B,1,D]
-        log_det = torch.log(var).sum(dim=-1)  # [M]
-        quad = ((x_ - mean) ** 2 / var).sum(dim=-1)  # [B,M]
+        x_ = x.unsqueeze(1)  
+        log_det = torch.log(var).sum(dim=-1)  
+        quad = ((x_ - mean) ** 2 / var).sum(dim=-1)  
         return -0.5 * (quad + log_det + D * math.log(2 * math.pi))
 
     def _standardize(self, z: torch.Tensor, organ_id: int) -> torch.Tensor:
@@ -80,10 +80,6 @@ class GMMPrior(torch.nn.Module):
         return (z - mean) / std
 
     def log_prob_conditional(self, z: torch.Tensor, organ_id: int) -> torch.Tensor:
-        """
-        z: [B,D] in *physical* shape space
-        return: [B] log p(z | organ_id)
-        """
         zt = self._standardize(z, organ_id)
         w_name, mu_name, var_name = self._org_gmm[organ_id]
         w = getattr(self, w_name)    
@@ -103,16 +99,16 @@ class GMMPrior(torch.nn.Module):
         std = getattr(self, self._org_stats_std[organ_id]).clamp_min(self.eps_std) 
         log_jac = -torch.log(std).sum()  
 
-        return _logsumexp(log_mix + log_comp, dim=1) + log_jac  # [B]
+        return _logsumexp(log_mix + log_comp, dim=1) + log_jac 
 
     def log_prob_mix(self, z: torch.Tensor) -> torch.Tensor:
 
         logps = []
         for oid in self.org_ids:
-            logps.append(self.log_prob_conditional(z, oid))  # [B]
-        logps = torch.stack(logps, dim=1)  # [B,O]
-        log_pi = torch.log(self.org_mix.clamp_min(1e-12)).unsqueeze(0)  # [1,O]
-        return _logsumexp(log_pi + logps, dim=1)  # [B]
+            logps.append(self.log_prob_conditional(z, oid)) 
+        logps = torch.stack(logps, dim=1)  
+        log_pi = torch.log(self.org_mix.clamp_min(1e-12)).unsqueeze(0) 
+        return _logsumexp(log_pi + logps, dim=1)  
 
     def nll(
         self,
