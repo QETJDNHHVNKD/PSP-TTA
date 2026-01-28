@@ -10,7 +10,6 @@ import torch.nn.functional as F
 def _logsumexp(x: torch.Tensor, dim: int) -> torch.Tensor:
     return torch.logsumexp(x, dim=dim)
 
-
 @dataclass
 class DiagGMMParams:
     # All tensors are torch tensors on the correct device
@@ -85,17 +84,9 @@ class GMMPrior(torch.nn.Module):
         w = getattr(self, w_name)    
         mu = getattr(self, mu_name)   
         var = getattr(self, var_name) 
-        # var = var.clamp_min(1e-4)  
-        var = var.clamp_min(1e-3) 
-
-
-        # log_comp = self._diag_gaussian_logprob(zt, mu, var) 
-        # log_mix = torch.log(w.clamp_min(1e-12)).unsqueeze(0)
-        # # return _logsumexp(log_mix + log_comp, dim=1)         
+        var = var.clamp_min(1e-3)        
         log_comp = self._diag_gaussian_logprob(zt, mu, var)  
         log_mix = torch.log(w.clamp_min(1e-12)).unsqueeze(0) 
-
-       
         std = getattr(self, self._org_stats_std[organ_id]).clamp_min(self.eps_std) 
         log_jac = -torch.log(std).sum()  
 
