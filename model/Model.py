@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
-
 class UpBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UpBlock, self).__init__()
@@ -38,8 +36,8 @@ class DecoderWithPrompt(nn.Module):
         b = f512.shape[0]
 
 
-        prompt = prompt.view(prompt.shape[0], -1)  # [B, 256]
-        prompt = self.prompt_adapter(prompt.unsqueeze(-1).unsqueeze(-1))  # [B, 256, 1, 1]
+        prompt = prompt.view(prompt.shape[0], -1)  
+        prompt = self.prompt_adapter(prompt.unsqueeze(-1).unsqueeze(-1)) 
         prompt_512 = F.interpolate(prompt, size=f512.shape[2:], mode='bilinear', align_corners=False)
 
 
