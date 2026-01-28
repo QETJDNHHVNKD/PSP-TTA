@@ -746,11 +746,10 @@ def main():
         m_sum = m.sum(dim=(2, 3), keepdim=True).clamp_min(eps)
         inv_sum = inv.sum(dim=(2, 3), keepdim=True).clamp_min(eps)
 
-        # per-channel region means
+        
         c1 = (feat * m).sum(dim=(2, 3), keepdim=True) / m_sum
         c0 = (feat * inv).sum(dim=(2, 3), keepdim=True) / inv_sum
 
-        # average over (C,H,W) => per-sample
         loss_in = ((feat - c1) ** 2 * m).mean(dim=(1, 2, 3))
         loss_out = ((feat - c0) ** 2 * inv).mean(dim=(1, 2, 3))
         return loss_in + loss_out
