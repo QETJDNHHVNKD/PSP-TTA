@@ -55,12 +55,9 @@ def find_center(mask: np.ndarray) -> Tuple[int, int]:
         cy, cx = np.unravel_index(np.argmax(dist), dist.shape)
         return int(cy), int(cx)
 
-    # fallback centroid
     return int(np.mean(ys)), int(np.mean(xs))
 
-
 def radial_profile(mask: np.ndarray, cy: int, cx: int, N: int = 256) -> np.ndarray:
-
     ndi = _try_import_scipy()
     H, W = mask.shape
 
@@ -86,7 +83,7 @@ def radial_profile(mask: np.ndarray, cy: int, cx: int, N: int = 256) -> np.ndarr
     dy = ys_lin[ys] - cy_n
 
     ang = np.arctan2(dy, dx)
-    ang = (ang + 2 * np.pi) % (2 * np.pi)  # [0,2pi)
+    ang = (ang + 2 * np.pi) % (2 * np.pi) 
     rr = np.sqrt(dx * dx + dy * dy).astype(np.float32)
 
     bins = np.floor(ang / (2 * np.pi) * N).astype(np.int64)
@@ -121,7 +118,7 @@ def fit_fourier_r(r: np.ndarray, K: int, ridge: float = 1e-4) -> Tuple[float, np
 
     ATA = A.T @ A + ridge * np.eye(A.shape[1], dtype=np.float32)
     ATy = A.T @ r.astype(np.float32)
-    w = np.linalg.solve(ATA, ATy)  # [1+2K]
+    w = np.linalg.solve(ATA, ATy) 
 
     r0 = float(w[0])
     a = w[1:1 + K].astype(np.float32)
@@ -140,7 +137,7 @@ def mask_to_zshape(mask_bin: np.ndarray, K: int, N: int, r_max: float) -> Tuple[
     cx_n = xs_lin[cx]
     cy_n = ys_lin[cy]
 
-    r = radial_profile(m, cy, cx, N=N)  # [N]
+    r = radial_profile(m, cy, cx, N=N)  
     r0, a, b = fit_fourier_r(r, K=K, ridge=1e-4)
 
 
@@ -183,8 +180,8 @@ def _pca2(Z: np.ndarray):
     Zm = Z.mean(axis=0, keepdims=True)
     Z0 = Z - Zm
     U, S, Vt = np.linalg.svd(Z0, full_matrices=False)
-    W = Vt[:2].T  # [D,2]
-    Z2 = Z0 @ W   # [N,2]
+    W = Vt[:2].T  
+    Z2 = Z0 @ W   
     return Z2, W, Zm
 
 def _visualize_prior(prior, Z_by_org, device="cpu"):
@@ -198,18 +195,12 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
     prior.eval()
     org_ids = prior.org_ids
 
-
     for oid in org_ids:
         w = getattr(prior, f"w_{oid}").detach().cpu().numpy()
         mu = getattr(prior, f"mu_{oid}").detach().cpu().numpy()
 
         var_t = getattr(prior, f"var_{oid}").detach().clamp_min(1e-4)
         var = var_t.cpu().numpy()
-
-        print(f"[org={oid}] w: {w.shape}, mu: {mu.shape}, var: {var.shape}, "
-              f"min(var)={var.min():.3e}, max(var)={var.max():.3e}, sum(w)={w.sum():.4f}")
-
-
    
     for oid in org_ids:
         Z = np.stack(Z_by_org[oid], axis=0)
@@ -243,8 +234,6 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
         plt.legend()
         plt.tight_layout()
 
-
-  
     all_Z = []
     all_y = []
     for oid in org_ids:
@@ -272,8 +261,7 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
         mean = getattr(prior, f"mean_{oid}").detach().cpu().numpy()   
         std = getattr(prior, f"std_{oid}").detach().cpu().numpy()     
         mu_phys = mu_std * std[None, :] + mean[None, :]
-
-        mu2 = (mu_phys - Zm) @ W    # [M,2]
+        mu2 = (mu_phys - Zm) @ W   
         plt.scatter(mu2[:, 0], mu2[:, 1], s=40, label=f"org={oid} means")
     plt.title("GMM component means in PCA-2D (physical space)")
     plt.xlabel("PC1")
@@ -282,7 +270,6 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
     plt.tight_layout()
 
     plt.show()
-
 
 def main():
     parser = argparse.ArgumentParser()
@@ -338,7 +325,6 @@ def main():
 
     r_max = float(renderer.r_max)
 
-
     org_ids = [int(x) for x in args.org_ids.split(",")]
 
     Z_by_org: Dict[int, List[np.ndarray]] = {oid: [] for oid in org_ids}
@@ -367,7 +353,7 @@ def main():
 
                 m = MSK[i].numpy()
                 if m.ndim == 3:
-                    m = m[0]  # [H,W]
+                    m = m[0] 
                 bin_mask = np.isin(m, [1, 2]).astype(np.uint8)
 
                 if bin_mask.sum() < 10:
@@ -376,7 +362,6 @@ def main():
                 if args.mode == "geom":
                     z_shape, _center = mask_to_zshape(bin_mask, K=args.K, N=args.N, r_max=r_max)
                 else:
-
                     gt = torch.from_numpy(bin_mask.astype(np.float32))[None, None].to(device) 
 
                     if gt.shape[-2:] != (args.input_size, args.input_size):
@@ -399,7 +384,7 @@ def main():
     org_mix = {}
 
     for oid in org_ids:
-        Z = np.stack(Z_by_org[oid], axis=0)  # [n,D]
+        Z = np.stack(Z_by_org[oid], axis=0) 
         print(f"[org={oid}] collected {Z.shape[0]} samples, D={Z.shape[1]}")
         if Z.shape[0] < 30:
             raise RuntimeError(f"Too few samples for organ {oid}: {Z.shape[0]}")
