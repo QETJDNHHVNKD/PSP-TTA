@@ -13,10 +13,7 @@ def _atanh(x, eps=1e-6):
     return 0.5 * (torch.log1p(x) - torch.log1p(-x))
 
 class PolarFourierRenderer(nn.Module):
-    """
-    z = [p, cx, cy, r0, a1..aK, b1..bK]  ->  mask in (0,1)
-    坐标系：grid_x, grid_y in [-1,1]
-    """
+
     def __init__(self, H: int, W: int, K: int = 8, sharpness: float = 40.0, r_max: float = 1.25):
         super().__init__()
         self.H, self.W, self.K = H, W, K
@@ -36,7 +33,7 @@ class PolarFourierRenderer(nn.Module):
         cx_raw = z[:, 1:2]
         cy_raw = z[:, 2:3]
         r_raw  = z[:, 3:4]
-        ab     = z[:, 4:]  # [B,2K]
+        ab     = z[:, 4:]
 
         p  = torch.sigmoid(p_raw)
         cx = torch.tanh(cx_raw)
@@ -47,9 +44,9 @@ class PolarFourierRenderer(nn.Module):
         b = ab[:, self.K:]
 
         k = torch.arange(1, self.K + 1, device=z.device, dtype=z.dtype).view(1, self.K)  # 1..K
-        w = (1.0 / k)  # 高频更小，低频更大
+        w = (1.0 / k) 
 
-        base = 0.25 * self.r_max  # 低频最大幅度
+        base = 0.25 * self.r_max 
         a = base * w * torch.tanh(a)
         b = base * w * torch.tanh(b)
         return p, cx, cy, r0, a, b
