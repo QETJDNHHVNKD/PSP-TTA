@@ -1,5 +1,3 @@
-
-
 import os
 import torch
 import json
@@ -14,14 +12,11 @@ from torchvision import transforms
 
 class To3Channels(object):
     def __call__(self, x):
-        # x: Tensor [C,H,W]
         if x.dim() == 3 and x.size(0) == 1:
             x = x.repeat(3, 1, 1)
         return x
-
 def transform_type(args, mode):
     size = args.input_size
-
     if mode == 'Train':
         transforms_op = AugCompose([
             RandomHorizontalFlip(prob=0.5),
@@ -32,7 +27,6 @@ def transform_type(args, mode):
             RandomContrast(limit=0.2, prob=0.3),
             ImageResize(size),
         ])
-
         transforms_op.torch_ops = transforms.Compose([
             transforms.ToTensor(),
             To3Channels(),
@@ -67,19 +61,14 @@ class _base_folder(torch.utils.data.Dataset):
 
         MSK = Image.open(mskpth).convert('1')
 
-
-
     def __len__(self):
         return len(self.samples)
 
 def baseloader(args):
     file = open(args.data_configuration, 'r')
-
     with open(r'....\dataset_config.yaml', 'r', encoding='utf-8') as file:
         _data_configuration = yaml.load(file.read(), Loader=yaml.FullLoader)
-
     file.close
-
     args.domian_num = len(_data_configuration)
 
     _sample_path_list = {'Train':[],'Valid':[],'Test':[]}
@@ -89,7 +78,6 @@ def baseloader(args):
         cohort = cohort.strip()
 
         json_path = os.path.join(args.data_path, cohort)
-
 
         if not os.path.exists(json_path):
             lower_map = {f.lower(): f for f in os.listdir(args.data_path)}
@@ -132,7 +120,6 @@ def baseloader(args):
     _tt_loader = torch.utils.data.DataLoader(_tt_folder, batch_size=args.batch_size,
                                              num_workers=args.num_workers, pin_memory=True, shuffle=False,
                                              drop_last=False)
-
 
     return _tn_loader, _vd_loader, _tt_loader
 
