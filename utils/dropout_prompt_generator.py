@@ -9,5 +9,5 @@ class PromptGeneratorWithDropout(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, B):
-        prompts = self.prompts.unsqueeze(0).repeat(B, 1, 1)  # [B, P, D]
+        prompts = self.prompts.unsqueeze(0).repeat(B, 1, 1)  
         return self.dropout(prompts)
