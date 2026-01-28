@@ -52,10 +52,10 @@ class RandomCrop(object):
             msk = msk.crop(crop_region)
         return img,msk
 
-class RandomBrightness(object):              #
+class RandomBrightness(object):              
     def __init__(self, limit, prob=0.5):
         self.limit = limit
-    def __call__(self, img, msk):     #
+    def __call__(self, img, msk):     
         if random.random() < self.prob:
             factor = random.uniform(1-self.limit, 1+self.limit)
             enh_bri = ImageEnhance.Brightness(img)
