@@ -60,7 +60,6 @@ def bce_dice_loss(p: torch.Tensor, y: torch.Tensor, w: torch.Tensor, eps=1e-6) -
 
 
 def _topk_bool(score: torch.Tensor, max_ratio: float) -> torch.Tensor:
-    """Keep top max_ratio pixels per-sample. score>=0, shape [B,1,H,W]."""
     if max_ratio >= 1.0:
         return torch.ones_like(score, dtype=torch.bool)
     B = score.shape[0]
@@ -126,14 +125,12 @@ def chan_vese_loss(x01: torch.Tensor, m: torch.Tensor, eps=1e-6) -> torch.Tensor
     e_out = ((x01 - outside) ** 2) * (1 - m)
     return (e_in.mean() + e_out.mean())
 
-
 def save_white_mask(mask01: torch.Tensor, out_path: str):
 
     if mask01.dim() == 4:
         mask01 = mask01[0, 0]
     elif mask01.dim() == 3:
         mask01 = mask01[0]
-
     m = (mask01 > 0).detach().cpu().numpy().astype(np.uint8) * 255  # 0/255
     Image.fromarray(m, mode="L").save(out_path)
 
@@ -141,7 +138,6 @@ def save_white_mask(mask01: torch.Tensor, out_path: str):
 
 
 def save_triplet(img01: torch.Tensor, gt01: torch.Tensor, pr01: torch.Tensor, out_path: str):
-
     img = (img01.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
     gt = gt01.cpu().numpy().astype(np.uint8)
     pr = pr01.cpu().numpy().astype(np.uint8)
@@ -193,7 +189,6 @@ def tta_z_only(
 
     prior.eval()
 
-    # 1) features + init z0
     with torch.no_grad():
         feats = model.forward_features(x)
         z0, m0, _, _ = shape_loop(feats)
@@ -248,8 +243,8 @@ def tta_z_only(
             )
 
         max_total = max(pl_max_ratio_fg + pl_max_ratio_bg, 1e-6)
-        sel_norm = min(sel_ratio / max_total, 1.0)  # 0~1：选满上限 => 1
-        wpl = float(mean_conf * sel_norm)  # 0~1：真正的“teacher 可信度”
+        sel_norm = min(sel_ratio / max_total, 1.0)
+        wpl = float(mean_conf * sel_norm) 
         reliability = wpl
 
         if (sel_ratio < min_conf_ratio) or (wpl < WPL_MIN):
@@ -261,34 +256,21 @@ def tta_z_only(
                 "delta": float(delta),
             })
             break
-
-
         l_pl = bce_dice_loss(m, y_hat, w_pl_mask)
 
-
-   
         z_hat = shape_loop.mask_encoder(m)  # soft mask
         l_cycle = F.mse_loss(z, z_hat.detach())
-
-      
         lam = max(lambda_min, lambda0 * (1.0 - reliability))
-
-
         z_shape = extract_z_shape_from_zraw(z, shape_loop.renderer)
         nll_now = prior.nll(z_shape, reduction="mean")
         l_prior = F.relu(nll_now - nll0) / nll_scale
-
       
         l_cv = chan_vese_loss(x01, m)
 
-   
         l_tr = F.mse_loss(z, z0)
 
-       
         area_now = (m > 0.5).float().mean()
         l_area = F.relu(area0 - area_now)
-
-      
 
         loss = (w_pl * wpl * l_pl) + (lam * l_prior) + (w_cycle * l_cycle) + (w_cv * l_cv) + (w_tr * l_tr) + (w_area * l_area)
 
@@ -298,7 +280,7 @@ def tta_z_only(
             teacher.mul_(teacher_ema).add_((1.0 - teacher_ema) * m.detach().clamp(0, 1))
 
         with torch.no_grad():
-            # z layout: [p, cx, cy, r0, a..., b...]
+        
             z[:, 0].clamp_(-6.0, 6.0) 
             z[:, 1:3].clamp_(-2.0, 2.0) 
             z[:, 3].clamp_(-6.0, 6.0)  
@@ -333,15 +315,13 @@ def tta_z_only(
             best["step"] = k + 1
 
     return best["mask"], logs
-
-
 def main():
     parser = argparse.ArgumentParser()
 
     # ckpt / prior
     parser.add_argument("--ckpt", type=str, required=True)
     parser.add_argument("--prior_path", type=str, required=True)
-    parser.add_argument("--save_dir", type=str, default="output/tta_eval")
+    parser.add_argument("--save_dir", type=str, default="output")
 
     # data
     parser.add_argument("--device", type=str, default="cuda:0")
@@ -368,7 +348,7 @@ def main():
 
     parser.add_argument("--data_configuration",default=r"..\dataset_config.yaml", type=str)
 
-    parser.add_argument("--data_path",default=r"..\my_Dataset",type=str)
+    parser.add_argument("--data_path",default=r"..\Dataset",type=str)
 
     parser.add_argument("--num_workers", default=0, type=int)
 
@@ -395,7 +375,6 @@ def main():
     model = ASF(class_num=2, task_prompt=None, prompt_generator=None, use_anomaly_detection=False).to(device)
     shape_loop = ShapeClosedLoop(out_hw=args.input_size, K=8, sharpness=args.sharpness).to(device)
 
-
     ckpt = torch.load(args.ckpt, map_location=device)
     if isinstance(ckpt, dict) and "model" in ckpt:
         model.load_state_dict(ckpt["model"], strict=False)
@@ -405,14 +384,12 @@ def main():
     if isinstance(ckpt, dict) and "shape_loop" in ckpt:
         shape_loop.load_state_dict(ckpt["shape_loop"], strict=True)
 
-
     model.eval()
     shape_loop.eval()
     for p in model.parameters():
         p.requires_grad_(False)
     for p in shape_loop.parameters():
         p.requires_grad_(False)
-
 
     prior = GMMPrior.load(args.prior_path, device=str(device)).to(device)
     prior.eval()
