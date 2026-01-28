@@ -43,7 +43,7 @@ class PolarFourierRenderer(nn.Module):
         a = ab[:, :self.K]
         b = ab[:, self.K:]
 
-        k = torch.arange(1, self.K + 1, device=z.device, dtype=z.dtype).view(1, self.K)  # 1..K
+        k = torch.arange(1, self.K + 1, device=z.device, dtype=z.dtype).view(1, self.K) 
         w = (1.0 / k) 
 
         base = 0.25 * self.r_max 
@@ -97,7 +97,7 @@ class MaskShapeEncoder(nn.Module):
 
         ys = torch.linspace(-1.0, 1.0, H, device=m.device, dtype=m.dtype)
         xs = torch.linspace(-1.0, 1.0, W, device=m.device, dtype=m.dtype)
-        gy, gx = torch.meshgrid(ys, xs, indexing="ij")  # [H,W]
+        gy, gx = torch.meshgrid(ys, xs, indexing="ij")  
         gx = gx[None, None, ...].expand(B, 1, H, W)
         gy = gy[None, None, ...].expand(B, 1, H, W)
 
