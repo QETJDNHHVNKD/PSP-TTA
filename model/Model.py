@@ -47,13 +47,13 @@ class DecoderWithPrompt(nn.Module):
         out256, s256 = self.up_trans[0](f512_prompt, f256)
 
 
-        # Step 2
+
         prompt_256 = F.interpolate(prompt, size=out256.shape[2:], mode='bilinear', align_corners=False)
         f128_resized = F.interpolate(f128, size=out256.shape[2:], mode="bilinear", align_corners=False)
         out256_prompt = torch.cat([out256, prompt_256, f128_resized], dim=1)
         out128, s128 = self.up_trans[1](out256_prompt, f128)
 
-        # Step 3
+
         prompt_128 = F.interpolate(prompt, size=out128.shape[2:], mode='bilinear', align_corners=False)
         f64_resized = F.interpolate(f64, size=out128.shape[2:], mode="bilinear", align_corners=False)
         out128_prompt = torch.cat([out128, prompt_128, f64_resized], dim=1)
@@ -71,25 +71,21 @@ class ASF(nn.Module):
         self.task_prompt = task_prompt
         self.prompt_generator = prompt_generator
         self.use_anomaly_detection = use_anomaly_detection
-        # 替换为
+ 
         self.prompt_linear_proj = nn.Identity()
 
         encoder = torch.hub.load('pytorch/vision:v0.10.0', 'resnet34', pretrained=True)
-        self.layer0 = nn.Sequential(encoder.conv1, encoder.bn1, encoder.relu, encoder.maxpool)  # 64
-        self.layer1 = encoder.layer1  # 64
-        self.layer2 = encoder.layer2  # 128
-        self.layer3 = encoder.layer3  # 256
-        self.layer4 = encoder.layer4  # 512
-
+        self.layer0 = nn.Sequential(encoder.conv1, encoder.bn1, encoder.relu, encoder.maxpool) 
+        self.layer1 = encoder.layer1  
+        self.layer2 = encoder.layer2 
+        self.layer3 = encoder.layer3  
+        self.layer4 = encoder.layer4  
 
         self._backbone_decoder = DecoderWithPrompt(prompt_dim=256, out_channels=class_num)
 
         self.organ_embedding = nn.Parameter(torch.randn(class_num, 256))
 
-
         self.train_metrics = {cls: [] for cls in range(class_num)}
-
-
 
     def segment_with_prompt(self, features, prompt):
         if prompt.dim() == 3:
@@ -98,7 +94,6 @@ class ASF(nn.Module):
         prompt = self.prompt_linear_proj(prompt)
         output = self._backbone_decoder(features[:4], prompt)[0]
         return {'segmentation': output}
-
 
     def teacher_segment(self, features, prompt=None):
         with torch.no_grad():
