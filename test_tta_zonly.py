@@ -22,13 +22,11 @@ MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 STD  = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
 def denorm(x: torch.Tensor) -> torch.Tensor:
-    # x: [B,3,H,W] normalized -> [0,1]
     return torch.clamp(x * STD.to(x.device) + MEAN.to(x.device), 0.0, 1.0)
 
 
 @torch.no_grad()
 def dice_binary(pred01: torch.Tensor, gt01: torch.Tensor, eps=1e-6) -> float:
-    # pred01, gt01: [1,H,W] or [H,W]
     if pred01.dim() == 3:
         pred01 = pred01.squeeze(0)
     if gt01.dim() == 3:
@@ -68,12 +66,10 @@ def _topk_bool(score: torch.Tensor, max_ratio: float) -> torch.Tensor:
 
 @torch.no_grad()
 def build_pl_targets_and_weights(teacher_p, delta_fg, delta_bg, max_ratio_fg=0.03, max_ratio_bg=0.03):
-
     assert teacher_p.shape[0] == 1, "batch_size=1 only for stable TTA"
 
     y_hat = (teacher_p > 0.5).float()                    
     conf  = torch.maximum(teacher_p, 1 - teacher_p)      
-
 
     fg_cand = (y_hat > 0.5) & (conf >= float(delta_fg))
     bg_cand = (y_hat <= 0.5) & (conf >= float(delta_bg))
@@ -109,7 +105,6 @@ def build_pl_targets_and_weights(teacher_p, delta_fg, delta_bg, max_ratio_fg=0.0
 
 
 def chan_vese_loss(x01: torch.Tensor, m: torch.Tensor, eps=1e-6) -> torch.Tensor:
-
     m = torch.clamp(m, 0.0, 1.0)
     inside = (m * x01).sum(dim=(2, 3), keepdim=True) / (m.sum(dim=(2, 3), keepdim=True) + eps)
     outside = ((1 - m) * x01).sum(dim=(2, 3), keepdim=True) / ((1 - m).sum(dim=(2, 3), keepdim=True) + eps)
@@ -119,7 +114,6 @@ def chan_vese_loss(x01: torch.Tensor, m: torch.Tensor, eps=1e-6) -> torch.Tensor
     return (e_in.mean() + e_out.mean())
 
 def save_white_mask(mask01: torch.Tensor, out_path: str):
-
     if mask01.dim() == 4:
         mask01 = mask01[0, 0]
     elif mask01.dim() == 3:
@@ -132,7 +126,6 @@ def save_triplet(img01: torch.Tensor, gt01: torch.Tensor, pr01: torch.Tensor, ou
     img = (img01.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
     gt = gt01.cpu().numpy().astype(np.uint8)
     pr = pr01.cpu().numpy().astype(np.uint8)
-
     def overlay(base, mask, color=(255, 0, 0), alpha=0.45):
         base = base.copy()
         m = mask.astype(bool)
@@ -202,14 +195,13 @@ def tta_z_only(
 
     WPL_MIN = 0.35
 
-    x01 = denorm(x).detach()  # for CV term
+    x01 = denorm(x).detach() 
 
     with torch.no_grad():
         z_shape0 = extract_z_shape_from_zraw(z0, shape_loop.renderer)
         nll0 = prior.nll(z_shape0, reduction="mean").detach()
 
     for k in range(steps):
-        # delta schedule
         if steps <= 1:
             delta = delta_end
         else:
@@ -217,7 +209,6 @@ def tta_z_only(
             delta = delta_start * (1 - t) + delta_end * t
 
         opt.zero_grad(set_to_none=True)
-
 
         delta_fg = float(delta)
         delta_bg = float(min(0.99, delta + bg_thr_bonus))
@@ -330,8 +321,6 @@ def main():
     parser.add_argument("--nll_scale", type=float, default=10.0)
   
     parser.add_argument("--no_tta", action="store_true")
-
-
     parser.add_argument("--data_configuration",default=r"..\dataset_config.yaml", type=str)
 
     parser.add_argument("--data_path",default=r"..\Dataset",type=str)
