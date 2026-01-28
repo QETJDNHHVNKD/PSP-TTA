@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-_projection_layer = None  # 全局静态变量（避免每次都创建）
+_projection_layer = None 
 
 def cosine_alignment_loss(prompt, text_embed, labels):
     global _projection_layer
@@ -10,7 +10,6 @@ def cosine_alignment_loss(prompt, text_embed, labels):
     B, prompt_dim = prompt.shape
     _, text_dim = text_embed.shape
 
-    # 初始化一次性线性层
     if _projection_layer is None or _projection_layer.weight.shape[1] != text_dim:
         _projection_layer = torch.nn.Linear(text_dim, prompt_dim).to(device)
 
