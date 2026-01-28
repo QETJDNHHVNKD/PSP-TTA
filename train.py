@@ -40,7 +40,7 @@ def val_shape_loop(model, shape_loop, val_loader, device, tumor_classes=(1,2), e
         gt = F.one_hot(MSK1ch_bin, num_classes=2).permute(0,3,1,2).float()[:,1:2]  # [B,1,H,W]
 
         feats = model.forward_features(IMG)
-        _, m1, _, _ = shape_loop(feats)  # [B,1,h,w]
+        _, m1, _, _ = shape_loop(feats) 
 
         if gt.shape[-2:] != m1.shape[-2:]:
             gt = F.interpolate(gt, size=m1.shape[-2:], mode="nearest")
@@ -66,13 +66,13 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
             continue
 
         IMG = IMG[mask].to(device)
-        MSK1ch = MSK1ch[mask].to(device).long().squeeze(1)  # [B,H,W]
+        MSK1ch = MSK1ch[mask].to(device).long().squeeze(1)  
 
         tc = torch.tensor(tumor_classes, device=device)
-        gt = torch.isin(MSK1ch, tc).float().unsqueeze(1)     # [B,1,H,W]
+        gt = torch.isin(MSK1ch, tc).float().unsqueeze(1)     
 
         feats = model.forward_features(IMG)
-        z1, m1, z2, m2 = shape_loop(feats)                   # [B,1,H,W]
+        z1, m1, z2, m2 = shape_loop(feats)                 
 
         if gt.shape[-2:] != m1.shape[-2:]:
             gt = F.interpolate(gt, size=m1.shape[-2:], mode="nearest")
@@ -145,7 +145,6 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
         print(f"[VIS] saved: {save_path}")
         return
 
-
 @torch.no_grad()
 def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
                           tumor_classes=(1,2), eval_derm=False, max_items=3,
@@ -178,7 +177,6 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
         cos_k = torch.cos(k * theta[:, None, :])
         sin_k = torch.sin(k * theta[:, None, :])
 
-
         a_ = a[:, :, None]
         b_ = b[:, :, None]
 
@@ -187,7 +185,6 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
 
 
         r = torch.clamp(r, min=1e-3, max=shape_loop.renderer.r_max)
-
 
         x = cx[:, None, None] + r * torch.cos(theta[:, None, :])
         y = cy[:, None, None] + r * torch.sin(theta[:, None, :])
@@ -252,9 +249,9 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
         out_dir = save_path.parent
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        # 文件名基底：epoch_0220_param
+       
         stem = save_path.stem
-        suffix = save_path.suffix  # .png
+        suffix = save_path.suffix 
 
         for i in range(B):
 
@@ -360,7 +357,6 @@ def build_optimizer(model, adaptive_module, args):
     params.append({"params": adaptive_module.anomaly_fuser.parameters(), "lr": base_lr * 0.2, "weight_decay": wd})
     params.append({"params": adaptive_module.threshold_module.parameters(), "lr": base_lr, "weight_decay": wd})
 
-
     other_params = [p for p in model.parameters() if id(p) not in used_ids]
     params.append({"params": other_params, "lr": base_lr, "weight_decay": wd})
 
@@ -398,7 +394,7 @@ def setup_freeze_for_epoch(model, adaptive_module, epoch, seg_warmup):
         getattr(adaptive_module, "anomaly_fuser", None),
     )
 
-    # 2) 模块冻结/解冻
+
     if epoch < seg_warmup:
         freeze_module_params(getattr(adaptive_module, "prompt_refiner", None), True)
         freeze_module_params(getattr(adaptive_module, "anomaly_fuser", None), True)
@@ -618,7 +614,7 @@ def main():
                 tumor_classes=(1, 2), eval_derm=False, max_items=3
             )
 
-        print(f" 🔍 Val Dice (source): {avg_dice:.4f}")
+        print(f"Val Dice (source): {avg_dice:.4f}")
         if epoch % 5 == 0:
             torch.save(model.state_dict(), Path(args.save_model_dir) / f"model_epoch_{epoch}.pth")
 
