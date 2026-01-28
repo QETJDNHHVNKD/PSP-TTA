@@ -198,7 +198,7 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
     prior.eval()
     org_ids = prior.org_ids
 
-    print("\n===== [Sanity Check] =====")
+
     for oid in org_ids:
         w = getattr(prior, f"w_{oid}").detach().cpu().numpy()
         mu = getattr(prior, f"mu_{oid}").detach().cpu().numpy()
@@ -210,7 +210,7 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
               f"min(var)={var.min():.3e}, max(var)={var.max():.3e}, sum(w)={w.sum():.4f}")
 
 
-    print("\n===== [NLL Stats & Org-Separation] =====")
+   
     for oid in org_ids:
         Z = np.stack(Z_by_org[oid], axis=0)
         z = torch.from_numpy(Z).to(device).float()
@@ -221,7 +221,7 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
 
         lps = []
         for oid2 in org_ids:
-            lp = prior.log_prob_conditional(z, int(oid2))  # [B]
+            lp = prior.log_prob_conditional(z, int(oid2))  
             lps.append(lp)
         lps = torch.stack(lps, dim=1)  # [B,O]
         pred_idx = lps.argmax(dim=1).detach().cpu().numpy()
@@ -377,9 +377,7 @@ def main():
                     z_shape, _center = mask_to_zshape(bin_mask, K=args.K, N=args.N, r_max=r_max)
                 else:
 
-                    gt = torch.from_numpy(bin_mask.astype(np.float32))[None, None].to(device)  # [1,1,H,W]
-
-
+                    gt = torch.from_numpy(bin_mask.astype(np.float32))[None, None].to(device) 
 
                     if gt.shape[-2:] != (args.input_size, args.input_size):
                         gt = F.interpolate(gt, size=(args.input_size, args.input_size), mode="nearest")
@@ -416,14 +414,12 @@ def main():
             _visualize_prior(prior, Z_by_org, device=device)
             return
 
-
         gmm, bic = fit_gmm_diag(
             Zs,
             k_candidates=(1, 2, 4, 8),
             reg_covar=1e-3,
             seed=args.seed
         )
-
 
         org_stats[oid] = OrgStats(
             mean=torch.from_numpy(mean.squeeze(0)).float(),
