@@ -233,7 +233,7 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
               f"mixNLL mean={nll_m.mean():.3f} std={nll_m.std():.3f} | "
               f"argmax-org-acc={acc:.3f}")
 
-        # 直方图
+    
         plt.figure()
         plt.hist(nll_c, bins=50, alpha=0.7, label=f"cond NLL (org={oid})")
         plt.hist(nll_m, bins=50, alpha=0.7, label="US-mix NLL")
@@ -244,7 +244,7 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
         plt.tight_layout()
 
 
-    print("\n===== [PCA 2D] =====")
+  
     all_Z = []
     all_y = []
     for oid in org_ids:
@@ -269,8 +269,8 @@ def _visualize_prior(prior, Z_by_org, device="cpu"):
     plt.figure()
     for oid in org_ids:
         mu_std = getattr(prior, f"mu_{oid}").detach().cpu().numpy()
-        mean = getattr(prior, f"mean_{oid}").detach().cpu().numpy()   # [D]
-        std = getattr(prior, f"std_{oid}").detach().cpu().numpy()     # [D]
+        mean = getattr(prior, f"mean_{oid}").detach().cpu().numpy()   
+        std = getattr(prior, f"std_{oid}").detach().cpu().numpy()     
         mu_phys = mu_std * std[None, :] + mean[None, :]
 
         mu2 = (mu_phys - Zm) @ W    # [M,2]
@@ -295,7 +295,7 @@ def main():
     parser.add_argument("--out", default="gmm_prior_us.pth")
     parser.add_argument("--seed", default=0, type=int)
 
-    # 你 loader 里 derm 是 setseq==3；US 的 0/1/2 你按实际改映射
+
     parser.add_argument("--derm_id", default=3, type=int)
     parser.add_argument("--org_ids", default="0,1,2")  # US organs
 
@@ -316,7 +316,7 @@ def main():
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    # build loader
+
     train_loader, val_loader, _ = baseloader(args)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -356,7 +356,7 @@ def main():
             MSK = MSK.cpu()
             setseq = setseq.cpu().long()
 
-            # US only
+            
             for i in range(MSK.shape[0]):
                 oid = int(setseq[i].item())
                 if oid == args.derm_id:
@@ -415,8 +415,6 @@ def main():
             prior = GMMPrior.load(prior_path, device=device)
             _visualize_prior(prior, Z_by_org, device=device)
             return
-
-
 
 
         gmm, bic = fit_gmm_diag(
