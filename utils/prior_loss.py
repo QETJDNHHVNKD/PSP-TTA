@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 
 def dice_loss_per_channel(pred, target, eps=1e-6):
-
     pred = pred.contiguous().view(pred.size(0), -1)
     target = target.contiguous().view(target.size(0), -1)
     intersection = (pred * target).sum(dim=1)
