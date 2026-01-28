@@ -5,7 +5,6 @@ def dice_loss_per_channel(pred, target, eps=1e-6):
 
     pred = pred.contiguous().view(pred.size(0), -1)
     target = target.contiguous().view(target.size(0), -1)
-
     intersection = (pred * target).sum(dim=1)
     union = pred.sum(dim=1) + target.sum(dim=1)
     dice = (2 * intersection + eps) / (union + eps)
