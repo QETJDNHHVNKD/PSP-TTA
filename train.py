@@ -104,11 +104,6 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
 
 
         p, cx, cy, r0, a, b = shape_loop.renderer.decode(z1)
-        print(f"[VIS] dice(m1,gt)={d_m1_gt:.4f} | dice(m2,m1)={d_m2_m1:.4f} | "
-              f"dice(m_gt,gt)={d_mgt_gt:.4f} | mse(z1,z_gt)={z_cons:.6f}")
-        print(f"[VIS] p in [{p.min().item():.3f},{p.max().item():.3f}] | "
-              f"cx/cy in [{cx.min().item():.3f},{cx.max().item():.3f}] / [{cy.min().item():.3f},{cy.max().item():.3f}] | "
-              f"r0 in [{r0.min().item():.3f},{r0.max().item():.3f}]")
 
 
         B = min(max_items, IMG.shape[0])
@@ -142,35 +137,15 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close(fig)
-        print(f"[VIS] saved: {save_path}")
+        print(f"[saved")
         return
-
-@torch.no_grad()
-def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
-                          tumor_classes=(1,2), eval_derm=False, max_items=3,
-                          n_theta=512):
-
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    plt.rcParams.update({
-        "font.size": 12,
-        "axes.titlesize": 13,
-        "axes.labelsize": 12,
-        "xtick.labelsize": 11,
-        "ytick.labelsize": 11,
-        "legend.fontsize": 11,
-    })
-
-    import torch.nn.functional as F
 
     model.eval()
     shape_loop.eval()
 
     def z_to_curve(z, H, W):
 
-        p, cx, cy, r0, a, b = shape_loop.renderer.decode(z)  # torch tensors
-        # build theta
+        p, cx, cy, r0, a, b = shape_loop.renderer.decode(z)  
         theta = torch.linspace(0, 2*np.pi, n_theta, device=z.device, dtype=z.dtype)[None, :]  
         k = torch.arange(1, shape_loop.renderer.K + 1, device=z.device, dtype=z.dtype)[None, :, None]  
 
@@ -192,13 +167,11 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
 
         x_pix = (x + 1) * 0.5 * (W - 1)
         y_pix = (y + 1) * 0.5 * (H - 1)
-
   
         x_pix = x_pix.reshape(x_pix.shape[0], -1)
         y_pix = y_pix.reshape(y_pix.shape[0], -1)
 
         r = r.reshape(r.shape[0], -1)  
-
 
         amp = torch.sqrt(a*a + b*b)
 
@@ -262,14 +235,10 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
             m2_i = m2[i, 0].detach().cpu().numpy()
             mgt_i = m_gt[i, 0].detach().cpu().numpy()
 
-
             ax.imshow(gt_i, cmap="gray")
-
             cs1 = ax.contour(m1_i, levels=[0.5], colors=["tab:blue"], linewidths=3)
             cs2 = ax.contour(m2_i, levels=[0.5], colors=["tab:orange"], linewidths=3)
             cs3 = ax.contour(mgt_i, levels=[0.5], colors=["tab:green"], linewidths=3)
-
-
 
             h1 = cs1.collections[0]
             h2 = cs2.collections[0]
@@ -285,7 +254,6 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
             plt.tight_layout()
             plt.savefig(str(path_contour), dpi=200)
             plt.close(fig)
-            print(f"[VIS-PARAM] saved: {path_contour}")
 
 
             fig, ax = plt.subplots(1, 1, figsize=(6.2, 4.2))
@@ -505,7 +473,6 @@ def main():
         best_dice = checkpoint.get('best_dice', 0.0)
         start_epoch = checkpoint.get('epoch', 0) + 1
 
-
     for epoch in range(start_epoch, args.max_epoch):
 
         warmup = 10
@@ -519,7 +486,6 @@ def main():
             shape_loop.renderer.sharpness = s0 + (s1 - s0) * tt
         else:
             shape_loop.renderer.sharpness = s1
-
 
         epoch_losses = {k: 0.0 for k in ["seg", "cons", "rec", "gt_rec"]}
         num_samples = 0
@@ -594,7 +560,6 @@ def main():
         }
 
         torch.save(checkpoint, Path(args.save_model_dir) / f"checkpoint_latest.pth")
-
 
         avg_dice = val_shape_loop(model, shape_loop, val_loader, device, tumor_classes=(1, 2), eval_derm=False)
 
