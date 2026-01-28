@@ -39,7 +39,6 @@ def ema_update(teacher: nn.Module, student: nn.Module, decay: float):
             tv.copy_(sv)
 
 def dice_soft_per(a, b, eps=1e-6):
-    # a,b: [B,1,H,W] in [0,1]
     inter = (a * b).sum((1,2,3)) * 2.0
     denom = a.sum((1,2,3)) + b.sum((1,2,3)) + eps
     return inter / denom           
@@ -48,13 +47,11 @@ def dice_soft(a, b, eps=1e-6):
     return dice_soft_per(a, b, eps=eps).mean()
 
 def logit_safe(p, eps=1e-4):
-    # p: [0,1] -> logit
     p = p.clamp(eps, 1.0 - eps)
     return torch.log(p / (1.0 - p))
 
 
 def rampup_sigmoid(x: float):
-    # x in [0,1]
     x = float(max(0.0, min(1.0, x)))
     return math.exp(-5.0 * (1.0 - x) * (1.0 - x))
 
@@ -73,7 +70,6 @@ def appearance_aug(x, strength=1.0):
 
     x2 = x * ct + br
 
- 
     prob_noise = 0.7 * float(min(1.0, strength))
     if torch.rand(1).item() < prob_noise:
         sigma = (torch.rand(B, 1, 1, 1, device=device, dtype=dtype) * 0.03) * strength
@@ -89,7 +85,6 @@ def appearance_aug(x, strength=1.0):
 
     return x2
 def random_translate_theta(B, device, max_px_frac=0.08):
-    
     t = 2.0 * max_px_frac
     tx = (torch.rand(B, device=device) * 2 - 1) * t
     ty = (torch.rand(B, device=device) * 2 - 1) * t
@@ -124,7 +119,6 @@ def random_scale_translate_theta(B, device, max_px_frac=0.08, scale_range=(0.8, 
     theta_inv = Ainv[:, :2, :]
     return theta, theta_inv
 
-
 def warp_with_theta(x, theta, out_hw=None, mode="bilinear", padding_mode="zeros"):
     B, C, H, W = x.shape
     if out_hw is None:
@@ -137,7 +131,7 @@ def warp_with_theta(x, theta, out_hw=None, mode="bilinear", padding_mode="zeros"
 
 class MixBuffer:
     def __init__(self):
-        self.us = None   # tuple of tensors
+        self.us = None   
         self.derm = None
 
     def _cat(self, old, new):
@@ -167,7 +161,6 @@ class MixBuffer:
             a = tuple(p[:n] for p in pack)
             b = tuple(p[n:] for p in pack)
             return a, (b if b[0].shape[0] > 0 else None)
-
         us_take, self.us = _split(self.us, us_bs)
         derm_take, self.derm = _split(self.derm, derm_bs)
         return us_take, derm_take
@@ -176,7 +169,6 @@ def _bn_adapt_freeze_affine(m: nn.Module):
 
     if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)):
         m.train()
-
         try:
             m.momentum = 0.01
         except Exception:
@@ -292,13 +284,10 @@ def main():
 
     train_loader, val_loader, _ = baseloader(args)
 
-
     model = ASF(class_num=2, task_prompt=None, prompt_generator=None, use_anomaly_detection=False).to(device)
-
     model.disable_decoder_dropout = False
 
     shape_loop = ShapeClosedLoop(out_hw=args.input_size, K=8, sharpness=args.sharp_start).to(device)
-
 
     ckpt = torch.load(args.stage1_ckpt, map_location=device)
 
@@ -306,7 +295,6 @@ def main():
         ret = model.load_state_dict(ckpt["model"], strict=False)
     else:
         ret = model.load_state_dict(ckpt, strict=False)
-
 
     if isinstance(ckpt, dict) and "shape_loop" in ckpt:
         shape_loop.load_state_dict(ckpt["shape_loop"], strict=True)
@@ -354,7 +342,6 @@ def main():
         return x.permute(1, 2, 0).numpy() 
 
     def _overlay(rgb_uint8: np.ndarray, mask01_hw: np.ndarray, alpha=0.45):
-
         out = rgb_uint8.copy()
         m = mask01_hw.astype(bool)
         out[m, 0] = (out[m, 0] * (1 - alpha) + 255 * alpha).astype(np.uint8)
@@ -366,10 +353,7 @@ def main():
     def visualize_us_and_derm(epoch, img_us, msk_us, img_d, msk_d, save_root):
         model.eval()
         shape_loop.eval()
-
         os.makedirs(save_root, exist_ok=True)
-
-
         feats_us = model.forward_features(img_us.to(device))
         _, m_us, _, _ = shape_loop(feats_us)
         msk_us = msk_us.to(device).long()
