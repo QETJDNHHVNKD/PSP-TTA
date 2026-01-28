@@ -12,7 +12,6 @@ def _logsumexp(x: torch.Tensor, dim: int) -> torch.Tensor:
 
 @dataclass
 class DiagGMMParams:
-    # All tensors are torch tensors on the correct device
     weights: torch.Tensor        
     means: torch.Tensor         
     vars: torch.Tensor           iagonal variances)
