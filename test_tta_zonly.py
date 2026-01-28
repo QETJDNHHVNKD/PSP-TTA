@@ -16,12 +16,10 @@ from shape_loop import ShapeClosedLoop
 
 from utils.gmm_prior import GMMPrior, extract_z_shape_from_zraw
 
-# -----------------------------
-# small utils
-# -----------------------------
+
+
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 STD  = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
-
 
 def denorm(x: torch.Tensor) -> torch.Tensor:
     # x: [B,3,H,W] normalized -> [0,1]
@@ -78,16 +76,13 @@ def _topk_bool(score: torch.Tensor, max_ratio: float) -> torch.Tensor:
 
 @torch.no_grad()
 def build_pl_targets_and_weights(teacher_p, delta_fg, delta_bg, max_ratio_fg=0.03, max_ratio_bg=0.03):
-    """
-    和 tta_z_only 里的调用保持一致：
-    return: y_hat, w_mask(float 0/1), sel_ratio(float), mean_conf(float)
-    """
+
     assert teacher_p.shape[0] == 1, "batch_size=1 only for stable TTA"
 
-    y_hat = (teacher_p > 0.5).float()                    # [1,1,H,W]
-    conf  = torch.maximum(teacher_p, 1 - teacher_p)      # [1,1,H,W]
+    y_hat = (teacher_p > 0.5).float()                    
+    conf  = torch.maximum(teacher_p, 1 - teacher_p)      
 
-    # FG / BG 分离阈值：BG 更严格
+
     fg_cand = (y_hat > 0.5) & (conf >= float(delta_fg))
     bg_cand = (y_hat <= 0.5) & (conf >= float(delta_bg))
 
@@ -122,11 +117,7 @@ def build_pl_targets_and_weights(teacher_p, delta_fg, delta_bg, max_ratio_fg=0.0
 
 
 def chan_vese_loss(x01: torch.Tensor, m: torch.Tensor, eps=1e-6) -> torch.Tensor:
-    """
-    x01: [B,3,H,W] in [0,1]
-    m:   [B,1,H,W] prob
-    简单 CV：让 mask 内外颜色统计可分（弱图像驱动项）
-    """
+
     m = torch.clamp(m, 0.0, 1.0)
     inside = (m * x01).sum(dim=(2, 3), keepdim=True) / (m.sum(dim=(2, 3), keepdim=True) + eps)
     outside = ((1 - m) * x01).sum(dim=(2, 3), keepdim=True) / ((1 - m).sum(dim=(2, 3), keepdim=True) + eps)
@@ -137,10 +128,7 @@ def chan_vese_loss(x01: torch.Tensor, m: torch.Tensor, eps=1e-6) -> torch.Tensor
 
 
 def save_white_mask(mask01: torch.Tensor, out_path: str):
-    """
-    mask01: [H,W] or [1,H,W] or [1,1,H,W], values {0,1} or bool/int
-    保存为：黑底 + 白色前景（单通道PNG）
-    """
+
     if mask01.dim() == 4:
         mask01 = mask01[0, 0]
     elif mask01.dim() == 3:
@@ -152,12 +140,8 @@ def save_white_mask(mask01: torch.Tensor, out_path: str):
 
 
 
-
 def save_triplet(img01: torch.Tensor, gt01: torch.Tensor, pr01: torch.Tensor, out_path: str):
-    """
-    img01: [3,H,W] float [0,1]
-    gt01/pr01: [H,W] {0,1}
-    """
+
     img = (img01.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
     gt = gt01.cpu().numpy().astype(np.uint8)
     pr = pr01.cpu().numpy().astype(np.uint8)
@@ -180,9 +164,6 @@ def save_triplet(img01: torch.Tensor, gt01: torch.Tensor, pr01: torch.Tensor, ou
     Image.fromarray(canvas).save(out_path)
 
 
-# -----------------------------
-# TTA core: z-only optimization
-# -----------------------------
 def tta_z_only(
     model: ASF,
     shape_loop:ShapeClosedLoop,
@@ -238,7 +219,6 @@ def tta_z_only(
 
     x01 = denorm(x).detach()  # for CV term
 
-    # ===== prior baseline at z0 (important for batch=1) =====
     with torch.no_grad():
         z_shape0 = extract_z_shape_from_zraw(z0, shape_loop.renderer)
         nll0 = prior.nll(z_shape0, reduction="mean").detach()
@@ -254,10 +234,7 @@ def tta_z_only(
 
         opt.zero_grad(set_to_none=True)
 
-        # current mask prob
-        m = shape_loop.renderer(z)  # [1,1,H,W], already sigmoid inside
 
-        # --- (A) PL on teacher high-confidence pixels (FG/BG separated) ---
         delta_fg = float(delta)
         delta_bg = float(min(0.99, delta + bg_thr_bonus))
 
@@ -275,7 +252,6 @@ def tta_z_only(
         wpl = float(mean_conf * sel_norm)  # 0~1：真正的“teacher 可信度”
         reliability = wpl
 
-        # ===== 新增：不可靠就退出，避免“没监督还继续被其它loss带跑” =====
         if (sel_ratio < min_conf_ratio) or (wpl < WPL_MIN):
             logs.append({
                 "k": k,
@@ -286,33 +262,33 @@ def tta_z_only(
             })
             break
 
-        # 只有可靠时才算PL
+
         l_pl = bce_dice_loss(m, y_hat, w_pl_mask)
 
 
-        # m: 当前预测 mask 概率 (0~1), shape [B,1,H,W]
+   
         z_hat = shape_loop.mask_encoder(m)  # soft mask
         l_cycle = F.mse_loss(z, z_hat.detach())
 
-        # gate: confident -> rely more on PL, uncertain -> rely more on prior
+      
         lam = max(lambda_min, lambda0 * (1.0 - reliability))
 
-        # --- (C) prior: penalize getting worse than z0 baseline ---
+
         z_shape = extract_z_shape_from_zraw(z, shape_loop.renderer)
         nll_now = prior.nll(z_shape, reduction="mean")
         l_prior = F.relu(nll_now - nll0) / nll_scale
 
-        # --- (D) weak image-driven term: Chan-Vese ---
+      
         l_cv = chan_vese_loss(x01, m)
 
-        # --- (E) trust region: keep z near z0 ---
+   
         l_tr = F.mse_loss(z, z0)
 
-        # --- (F) anti-shrink: only penalize becoming smaller than baseline area ---
+       
         area_now = (m > 0.5).float().mean()
         l_area = F.relu(area0 - area_now)
 
-        # gate: confident -> rely more on PL, uncertain -> rely more on prior
+      
 
         loss = (w_pl * wpl * l_pl) + (lam * l_prior) + (w_cycle * l_cycle) + (w_cv * l_cv) + (w_tr * l_tr) + (w_area * l_area)
 
@@ -321,16 +297,15 @@ def tta_z_only(
         with torch.no_grad():
             teacher.mul_(teacher_ema).add_((1.0 - teacher_ema) * m.detach().clamp(0, 1))
 
-        # safety clamp (raw z)
         with torch.no_grad():
             # z layout: [p, cx, cy, r0, a..., b...]
-            z[:, 0].clamp_(-6.0, 6.0)  # p
-            z[:, 1:3].clamp_(-2.0, 2.0)  # cx, cy  ★重点：收紧它
-            z[:, 3].clamp_(-6.0, 6.0)  # r0
-            z[:, 4:].clamp_(-4.0, 4.0)  # a,b
+            z[:, 0].clamp_(-6.0, 6.0) 
+            z[:, 1:3].clamp_(-2.0, 2.0) 
+            z[:, 3].clamp_(-6.0, 6.0)  
+            z[:, 4:].clamp_(-4.0, 4.0) 
 
         with torch.no_grad():
-            z[:, 1:3].copy_(z0[:, 1:3])  # 彻底禁止平移漂移（cx,cy）
+            z[:, 1:3].copy_(z0[:, 1:3]) 
 
         loss_val = float(loss.item())
         ctr_shift = (z[:, 1:3] - z0[:, 1:3]).norm().item()
@@ -387,10 +362,10 @@ def main():
     parser.add_argument("--min_conf_ratio", type=float, default=0.002)
 
     parser.add_argument("--nll_scale", type=float, default=10.0)
-    # baseline switch
+  
     parser.add_argument("--no_tta", action="store_true")
 
-    # data (补齐 baseloader 需要的参数)
+
     parser.add_argument("--data_configuration",default=r"..\dataset_config.yaml", type=str)
 
     parser.add_argument("--data_path",default=r"..\my_Dataset",type=str)
