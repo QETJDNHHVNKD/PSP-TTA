@@ -1,12 +1,8 @@
 import torch
 import torch.nn.functional as F
 
-# -----------------------------------------------------------------------------
-# ★ 各类通用损失函数（dice, bce, focal）
-# -----------------------------------------------------------------------------
-
 def dice_loss_per_channel(pred, target, eps=1e-6):
-    # 展平为 [B, H*W]
+
     pred = pred.contiguous().view(pred.size(0), -1)
     target = target.contiguous().view(target.size(0), -1)
 
@@ -30,7 +26,7 @@ class SelectedLoss(torch.nn.Module):
         self.gamma = gamma
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor, labelseq: torch.Tensor):
-        # pred: [B, C, H, W]，target: [B, C, H, W]，labelseq: [B] 或 [B, K]
+    
         B = pred.shape[0]
         total_loss = 0.0
         for b in range(B):
