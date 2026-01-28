@@ -41,17 +41,10 @@ def dice_binary(pred01: torch.Tensor, gt01: torch.Tensor, eps=1e-6) -> float:
 
 
 def bce_dice_loss(p: torch.Tensor, y: torch.Tensor, w: torch.Tensor, eps=1e-6) -> torch.Tensor:
-    """
-    p: [B,1,H,W] prob in (0,1)
-    y: [B,1,H,W] {0,1}
-    w: [B,1,H,W] {0,1} weight mask (confidence region)
-    """
-    # BCE (masked)
     p = torch.clamp(p, 1e-6, 1 - 1e-6)
     bce = -(y * torch.log(p) + (1 - y) * torch.log(1 - p))
     bce = (bce * w).sum() / (w.sum() + eps)
 
-    # Dice (masked)
     num = 2.0 * (p * y * w).sum()
     den = (p * w).sum() + (y * w).sum() + eps
     dice = 1.0 - num / den
@@ -69,7 +62,7 @@ def _topk_bool(score: torch.Tensor, max_ratio: float) -> torch.Tensor:
     if k >= N:
         return torch.ones_like(score, dtype=torch.bool)
     topk_vals, _ = torch.topk(flat, k, dim=1, largest=True, sorted=False)
-    thr = topk_vals.min(dim=1, keepdim=True)[0]  # [B,1]
+    thr = topk_vals.min(dim=1, keepdim=True)[0] 
     keep = (flat >= thr)
     return keep.view_as(score)
 
@@ -111,7 +104,7 @@ def build_pl_targets_and_weights(teacher_p, delta_fg, delta_bg, max_ratio_fg=0.0
     sel_ratio = float(Omega.float().mean().item())
     mean_conf = float(conf[Omega].mean().item()) if Omega.any() else 0.0
 
-    w_mask = Omega.float()  # bce_dice_loss 里当作权重掩码
+    w_mask = Omega.float()  
     return y_hat, w_mask, sel_ratio, mean_conf
 
 
@@ -133,8 +126,6 @@ def save_white_mask(mask01: torch.Tensor, out_path: str):
         mask01 = mask01[0]
     m = (mask01 > 0).detach().cpu().numpy().astype(np.uint8) * 255  # 0/255
     Image.fromarray(m, mode="L").save(out_path)
-
-
 
 
 def save_triplet(img01: torch.Tensor, gt01: torch.Tensor, pr01: torch.Tensor, out_path: str):
@@ -199,7 +190,6 @@ def tta_z_only(
         z_shape0 = extract_z_shape_from_zraw(z0, shape_loop.renderer)
         nll0 = prior.nll(z_shape0, reduction="mean").detach()
 
-
     z = z0.clone().detach().requires_grad_(True)
     opt = torch.optim.Adam([z], lr=lr_z)
 
@@ -217,7 +207,6 @@ def tta_z_only(
     with torch.no_grad():
         z_shape0 = extract_z_shape_from_zraw(z0, shape_loop.renderer)
         nll0 = prior.nll(z_shape0, reduction="mean").detach()
-
 
     for k in range(steps):
         # delta schedule
@@ -258,7 +247,7 @@ def tta_z_only(
             break
         l_pl = bce_dice_loss(m, y_hat, w_pl_mask)
 
-        z_hat = shape_loop.mask_encoder(m)  # soft mask
+        z_hat = shape_loop.mask_encoder(m) 
         l_cycle = F.mse_loss(z, z_hat.detach())
         lam = max(lambda_min, lambda0 * (1.0 - reliability))
         z_shape = extract_z_shape_from_zraw(z, shape_loop.renderer)
@@ -318,18 +307,15 @@ def tta_z_only(
 def main():
     parser = argparse.ArgumentParser()
 
-    # ckpt / prior
     parser.add_argument("--ckpt", type=str, required=True)
     parser.add_argument("--prior_path", type=str, required=True)
     parser.add_argument("--save_dir", type=str, default="output")
 
-    # data
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--input_size", type=int, default=224)
     parser.add_argument("--derm_id", type=int, default=3, )
 
-    # TTA hyper
     parser.add_argument("--tta_steps", type=int, default=5)
     parser.add_argument("--lr_z", type=float, default=0.01)
     parser.add_argument("--delta_start", type=float, default=0.97)
@@ -473,9 +459,7 @@ def main():
         idx += 1
 
     mean_dice = float(np.mean(dices)) if len(dices) > 0 else 0.0
-    print(f"[DONE] derm samples={len(dices)} mean_dice={mean_dice:.4f}")
-    print(f"vis saved to: {vis_dir}")
-
+   
 
 if __name__ == "__main__":
     main()
