@@ -40,17 +40,13 @@ class DecoderWithPrompt(nn.Module):
         prompt = self.prompt_adapter(prompt.unsqueeze(-1).unsqueeze(-1)) 
         prompt_512 = F.interpolate(prompt, size=f512.shape[2:], mode='bilinear', align_corners=False)
 
-
         f512_prompt = torch.cat([f512, prompt_512], dim=1)
         out256, s256 = self.up_trans[0](f512_prompt, f256)
-
-
 
         prompt_256 = F.interpolate(prompt, size=out256.shape[2:], mode='bilinear', align_corners=False)
         f128_resized = F.interpolate(f128, size=out256.shape[2:], mode="bilinear", align_corners=False)
         out256_prompt = torch.cat([out256, prompt_256, f128_resized], dim=1)
         out128, s128 = self.up_trans[1](out256_prompt, f128)
-
 
         prompt_128 = F.interpolate(prompt, size=out128.shape[2:], mode='bilinear', align_corners=False)
         f64_resized = F.interpolate(f64, size=out128.shape[2:], mode="bilinear", align_corners=False)
@@ -58,7 +54,6 @@ class DecoderWithPrompt(nn.Module):
         out64, _ = self.up_trans[2](out128_prompt, f64)
 
         return self.final_conv(out64), out64
-
 
 class ASF(nn.Module):
     def __init__(self, class_num, task_prompt, prompt_generator, use_anomaly_detection=False):
@@ -80,14 +75,13 @@ class ASF(nn.Module):
         self.layer4 = encoder.layer4  
 
         self._backbone_decoder = DecoderWithPrompt(prompt_dim=256, out_channels=class_num)
-
         self.organ_embedding = nn.Parameter(torch.randn(class_num, 256))
 
         self.train_metrics = {cls: [] for cls in range(class_num)}
 
     def segment_with_prompt(self, features, prompt):
         if prompt.dim() == 3:
-            prompt = prompt.mean(dim=1)  # [B, N, C] → [B, C]
+            prompt = prompt.mean(dim=1) 
 
         prompt = self.prompt_linear_proj(prompt)
         output = self._backbone_decoder(features[:4], prompt)[0]
@@ -123,8 +117,7 @@ class ASF(nn.Module):
             C = getattr(self, "prompt_dim", 256)
             init_prompt = torch.zeros(B, C, device=x.device, dtype=feats[-1].dtype)
 
-        out = self.segment_with_prompt(feats, init_prompt)  # -> {'segmentation': logits}
-
+        out = self.segment_with_prompt(feats, init_prompt) 
         if return_aux:
             out["features"] = feats
             out["init_prompt"] = init_prompt
