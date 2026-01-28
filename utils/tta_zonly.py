@@ -12,17 +12,17 @@ class TTACfg:
     lr: float = 5e-2
 
     # pseudo-label selection
-    thr_hi: float = 0.95          # start threshold
-    thr_lo: float = 0.90          # end threshold (relax boundary)
-    max_ratio: float = 0.20       # keep at most top-ratio pixels
-    w_pl: float = 0.2             # weight for pseudo-label loss
+    thr_hi: float = 0.95        
+    thr_lo: float = 0.90       
+    max_ratio: float = 0.20       
+    w_pl: float = 0.2            
 
     # regularizers
-    beta_cycle: float = 1.0       # cycle strength
-    lambda0: float = 1.0          # base prior weight (will be gated by confidence)
-    gamma0: float = 0.2           # base trust/anchor weight (will be gated by confidence)
-    w_area: float = 0.05          # keep area close to initial (small, but helps anti-shrink)
-    nll_scale: float = 1.0        # same meaning as train_stage2.py
+    beta_cycle: float = 1.0       
+    lambda0: float = 1.0         
+    gamma0: float = 0.2          
+    w_area: float = 0.05         
+    nll_scale: float = 1.0        
 
     # drift protection (raw z clamp)
     clip_p: float = 6.0
@@ -35,7 +35,7 @@ class TTACfg:
 
 
 def _topk_cap(w: torch.Tensor, max_ratio: float) -> torch.Tensor:
-    """Keep only top max_ratio entries per-sample (w in [0,1])."""
+
     if max_ratio >= 1.0:
         return w
     B = w.shape[0]
@@ -49,21 +49,16 @@ def _topk_cap(w: torch.Tensor, max_ratio: float) -> torch.Tensor:
 
 
 def _weighted_pl_loss(prob: torch.Tensor, thr: float, max_ratio: float):
-    """
-    prob: [B,1,H,W] in (0,1)
-    returns: lpl, stats
-    """
+    
     prob = prob.clamp(1e-6, 1 - 1e-6)
     conf = torch.maximum(prob, 1.0 - prob)  # [B,1,H,W]
 
-    # soft weight 0..1 based on confidence
     w0 = ((conf - thr) / (1.0 - thr)).clamp(0.0, 1.0)
     w0 = _topk_cap(w0, max_ratio=max_ratio)
 
-    # pseudo label from current prediction
     y = (prob > 0.5).float()
 
-    # fg/bg balancing (DERM 背景极多，这步很关键)
+   
     w_pos = w0 * y
     w_neg = w0 * (1.0 - y)
     sum_pos = w_pos.sum((1, 2, 3)).clamp_min(1.0)
@@ -71,7 +66,7 @@ def _weighted_pl_loss(prob: torch.Tensor, thr: float, max_ratio: float):
     scale = (sum_neg / sum_pos).clamp(1.0, 10.0).view(-1, 1, 1, 1)
     w = w_pos * scale + w_neg
 
-    wsum = w.sum((1, 2, 3))  # [B]
+    wsum = w.sum((1, 2, 3))  
     has = (wsum > 0).float()
     if has.sum() < 0.5:
         z = torch.tensor(0.0, device=prob.device)
@@ -121,18 +116,12 @@ def tta_z_only(
     extract_z_shape_fn=None,
     cfg: TTACfg = TTACfg(),
 ):
-    """
-    Test-time adaptation for derm: update ONLY z (no model weights).
-
-    Returns:
-      m_best: [B,1,H,W]
-      logs: dict of scalars
-    """
+  
     device = img.device
     model.eval()
     shape_loop.eval()
 
-    # ---- init ----
+
     with torch.no_grad():
         z0, m0 = forward_z_m(model, shape_loop, img)
 
@@ -149,33 +138,30 @@ def tta_z_only(
 
         opt.zero_grad(set_to_none=True)
 
-        # 当前预测
         m = shape_loop.renderer(z)  # [B,1,H,W], sigmoid 后
 
-        # 1) PL loss (高置信像素)
+   
         lpl, st = _weighted_pl_loss(m, thr=thr, max_ratio=cfg.max_ratio)
 
-        # 2) cycle (防 z 漂移)
+   
         z_hat = shape_loop.mask_encoder(m)  # [B,z_dim]
         l_cycle = (z - z_hat.detach()).pow(2).mean()
 
-        # 3) prior (防跑出“超声形状域”)
+
         l_prior = torch.tensor(0.0, device=device)
         if (prior is not None) and (extract_z_shape_fn is not None):
-            zsh = extract_z_shape_fn(z, shape_loop.renderer)  # [B,Dsh]
-            nll_raw = prior.nll(zsh, organ_id=None, reduction="none")  # [B]
-            nll = nll_raw - nll_raw.detach().amin()  # batch shift
+            zsh = extract_z_shape_fn(z, shape_loop.renderer) 
+            nll_raw = prior.nll(zsh, organ_id=None, reduction="none")
+            nll = nll_raw - nll_raw.detach().amin() 
 
             wpl = float(st.get("wpl", torch.tensor(0.0)).item())
-            lam = cfg.lambda0 * (1.0 - wpl)  # 越不自信越依赖 prior
+            lam = cfg.lambda0 * (1.0 - wpl) 
             l_prior = (lam * nll).mean() / cfg.nll_scale
 
-        # 4) 弱图像驱动项：anchor 到 z0（防越训越保守/越圆）
         wpl = float(st.get("wpl", torch.tensor(0.0)).item())
         gamma = cfg.gamma0 * (1.0 - wpl)
         l_anchor = (z - z0.detach()).pow(2).mean()
 
-        # 5) 防“大病灶收缩”：面积保持（很轻的权重）
         area = m.mean(dim=(1, 2, 3))
         l_area = (area - area0).abs().mean()
 
