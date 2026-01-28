@@ -34,7 +34,7 @@ def val_shape_loop(model, shape_loop, val_loader, device, tumor_classes=(1,2), e
         IMG = IMG[mask].to(device)
         MSK1ch = MSK1ch[mask].to(device).long().squeeze(1)  # [B,H,W]
 
-        # 和训练一致：二值前景
+
         tc = torch.tensor(tumor_classes, device=MSK1ch.device)
         MSK1ch_bin = (torch.isin(MSK1ch, tc)).long()
         gt = F.one_hot(MSK1ch_bin, num_classes=2).permute(0,3,1,2).float()[:,1:2]  # [B,1,H,W]
@@ -59,7 +59,7 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
     model.eval()
     shape_loop.eval()
 
-    # 取一个 batch
+
     for IMG, MSK1ch, MSKmul, setseq, _ in loader:
         mask = (setseq == 3) if eval_derm else (setseq != 3)
         if mask.sum() == 0:
@@ -74,7 +74,6 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
         feats = model.forward_features(IMG)
         z1, m1, z2, m2 = shape_loop(feats)                   # [B,1,H,W]
 
-        # 对齐尺寸
         if gt.shape[-2:] != m1.shape[-2:]:
             gt = F.interpolate(gt, size=m1.shape[-2:], mode="nearest")
 
@@ -127,7 +126,6 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
             else:
                 img_show = img
 
-
             img_show = (img_show - img_show.min()) / (img_show.max() - img_show.min() + 1e-8)
 
             gt_i  = gt[i,0].detach().cpu()
@@ -174,10 +172,9 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
 
         p, cx, cy, r0, a, b = shape_loop.renderer.decode(z)  # torch tensors
         # build theta
-        theta = torch.linspace(0, 2*np.pi, n_theta, device=z.device, dtype=z.dtype)[None, :]  # [1,T]
-        k = torch.arange(1, shape_loop.renderer.K + 1, device=z.device, dtype=z.dtype)[None, :, None]  # [1,K,1]
+        theta = torch.linspace(0, 2*np.pi, n_theta, device=z.device, dtype=z.dtype)[None, :]  
+        k = torch.arange(1, shape_loop.renderer.K + 1, device=z.device, dtype=z.dtype)[None, :, None]  
 
-        # [B,1,T]
         cos_k = torch.cos(k * theta[:, None, :])
         sin_k = torch.sin(k * theta[:, None, :])
 
@@ -199,25 +196,25 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
         x_pix = (x + 1) * 0.5 * (W - 1)
         y_pix = (y + 1) * 0.5 * (H - 1)
 
-        # ✅ 强制变成 [B, T]
+  
         x_pix = x_pix.reshape(x_pix.shape[0], -1)
         y_pix = y_pix.reshape(y_pix.shape[0], -1)
 
-        r = r.reshape(r.shape[0], -1)  # r(theta) 也同理，防止出现 [B,1,T]
+        r = r.reshape(r.shape[0], -1)  
 
 
         amp = torch.sqrt(a*a + b*b)
 
         return {
-            "theta": theta.squeeze(0).detach().cpu().numpy(),   # [T]
-            "r": r.detach().cpu().numpy(),                      # [B,T]
-            "x_pix": x_pix.detach().cpu().numpy(),              # [B,T]
-            "y_pix": y_pix.detach().cpu().numpy(),              # [B,T]
-            "p": p.detach().cpu().numpy().squeeze(1),          # [B]
+            "theta": theta.squeeze(0).detach().cpu().numpy(),   
+            "r": r.detach().cpu().numpy(),                      
+            "x_pix": x_pix.detach().cpu().numpy(),             
+            "y_pix": y_pix.detach().cpu().numpy(),             
+            "p": p.detach().cpu().numpy().squeeze(1),        
             "cx": cx.detach().cpu().numpy().squeeze(1),
             "cy": cy.detach().cpu().numpy().squeeze(1),
             "r0": r0.detach().cpu().numpy().squeeze(1),
-            "amp": amp.detach().cpu().numpy(),                 # [B,K]
+            "amp": amp.detach().cpu().numpy(),                
         }
 
 
@@ -227,10 +224,10 @@ def vis_stage1_parametric(model, shape_loop, loader, device, save_path,
             continue
 
         IMG = IMG[mask].to(device)
-        MSK1ch = MSK1ch[mask].to(device).long().squeeze(1)  # [B,H,W]
+        MSK1ch = MSK1ch[mask].to(device).long().squeeze(1) 
 
         tc = torch.tensor(tumor_classes, device=device)
-        gt = torch.isin(MSK1ch, tc).float().unsqueeze(1)     # [B,1,H,W]
+        gt = torch.isin(MSK1ch, tc).float().unsqueeze(1)     
 
         feats = model.forward_features(IMG)
         z1, m1, z2, m2 = shape_loop(feats)
@@ -425,13 +422,12 @@ def enter_target_phase_once(adaptive_module):
                 if _m is not None:
                     _m.apply(_set_bn_eval)
 
-            _apply_bn_eval_safe(getattr(ema_t, None if ema_t is None else "__class__", None) and ema_t)  # 仅为易读性
+            _apply_bn_eval_safe(getattr(ema_t, None if ema_t is None else "__class__", None) and ema_t) 
             _apply_bn_eval_safe(getattr(adaptive_module, "anomaly_detector", None))
             _apply_bn_eval_safe(getattr(adaptive_module, "anomaly_fuser", None))
         except Exception:
             pass
         ema_t.eval()
-
 
 
 def loss_schedule(epoch, seg_dc, pri_cl, align_loss, distill=0.0, prompt_reg=0.0, is_source=True):
@@ -445,7 +441,6 @@ def loss_schedule(epoch, seg_dc, pri_cl, align_loss, distill=0.0, prompt_reg=0.0
     else:
 
         return seg_dc * 0.8 + pri_cl * 0.01 + align_loss * 0.1 + distill * 0.05 + prompt_reg * 0.08
-
 
 
 def main():
@@ -499,7 +494,7 @@ def main():
 
     start_epoch = 0
     if args.resume_path is not None and os.path.exists(args.resume_path):
-        print(f"🧩 Resume from checkpoint: {args.resume_path}")
+        print(f"Resume from checkpoint: {args.resume_path}")
         checkpoint = torch.load(args.resume_path, map_location=device)
 
         if "shape_loop" in checkpoint:
@@ -538,7 +533,6 @@ def main():
         shape_loop.train()
         for IMG, MSK1ch, MSKmul, setseq, _ in tqdm(train_loader, desc=f"Train {epoch}"):
 
-            #源域训练
             mask = setseq != 3
             if mask.sum() == 0:
                 continue
@@ -546,10 +540,8 @@ def main():
             IMG = IMG[mask].to(device, non_blocking=True)
             MSK1ch = MSK1ch[mask].to(device, non_blocking=True).long().squeeze(1)  # [B,H,W]
 
-
             bs = IMG.shape[0]
             num_samples += bs
-
 
             MSK1ch_bin = torch.isin(MSK1ch, tc).long()  # [B,H,W]
 
@@ -559,21 +551,17 @@ def main():
 
             z1, m1, z2, m2 = shape_loop(feats)
 
-
             if gt.shape[-2:] != m1.shape[-2:]:
                 gt = F.interpolate(gt, size=m1.shape[-2:], mode="nearest")
 
 
             term_seg = F.binary_cross_entropy(m1.clamp(1e-6, 1 - 1e-6), gt) + soft_dice_loss(m1, gt)
 
-
             z_gt = shape_loop.mask_encoder(gt)
             m_gt = shape_loop.renderer(z_gt)
             term_gt_rec = F.binary_cross_entropy(m_gt.clamp(1e-6, 1 - 1e-6), gt) + soft_dice_loss(m_gt, gt)
 
-
             term_cons = F.mse_loss(z1, z_gt.detach())
-
 
             m1_det = (m1.detach() > 0.5).float()
             term_rec = F.binary_cross_entropy(m2.clamp(1e-6, 1 - 1e-6), m1_det) + soft_dice_loss(m2, m1_det)
@@ -600,7 +588,6 @@ def main():
         for k in epoch_losses:
             epoch_losses[k] /= den
         print("Losses → " + ", ".join([f"{k}:{v:.4f}" for k, v in epoch_losses.items()]))
-
         checkpoint = {
             "model": model.state_dict(),
             "shape_loop": shape_loop.state_dict(),
@@ -609,7 +596,6 @@ def main():
             "epoch": epoch,
             "best_dice": best_dice,
         }
-
 
         torch.save(checkpoint, Path(args.save_model_dir) / f"checkpoint_latest.pth")
 
@@ -620,21 +606,19 @@ def main():
             vis_dir = Path(args.save_model_dir) / "vis_stage1"
             vis_dir.mkdir(parents=True, exist_ok=True)
 
-            vis_stage1_once(                            #可视化拼图
+            vis_stage1_once(                            
                 model, shape_loop, val_loader, device,
                 save_path=str(vis_dir / f"epoch_{epoch:04d}.png"),
                 tumor_classes=(1, 2), eval_derm=False, max_items=4
             )
 
-            vis_stage1_parametric(                           #可视化曲线
+            vis_stage1_parametric(                        
                 model, shape_loop, val_loader, device,
                 save_path=str(vis_dir / f"epoch_{epoch:04d}_param.png"),
                 tumor_classes=(1, 2), eval_derm=False, max_items=3
             )
 
         print(f" 🔍 Val Dice (source): {avg_dice:.4f}")
-
-        # ✅ 只保存best模型
         if epoch % 5 == 0:
             torch.save(model.state_dict(), Path(args.save_model_dir) / f"model_epoch_{epoch}.pth")
 
@@ -648,10 +632,10 @@ def main():
                 'epoch': epoch,
                 'best_dice': best_dice,
             }, Path(args.save_model_dir) / "best_model.pth")
-            print(f" 💾 Save best model. Dice={best_dice:.4f}")
+            print(f"  Save best model. Dice={best_dice:.4f}")
 
         if epoch % 10 == 0:
-            print(f"  📈 Best Dice so far: {best_dice:.4f}")
+            print(f" Best Dice so far: {best_dice:.4f}")
 
         if writer:
             writer.add_scalar("train/seg", epoch_losses["seg"], epoch)
