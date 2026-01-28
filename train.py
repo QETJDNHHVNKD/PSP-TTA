@@ -32,12 +32,12 @@ def val_shape_loop(model, shape_loop, val_loader, device, tumor_classes=(1,2), e
             continue
 
         IMG = IMG[mask].to(device)
-        MSK1ch = MSK1ch[mask].to(device).long().squeeze(1)  # [B,H,W]
+        MSK1ch = MSK1ch[mask].to(device).long().squeeze(1)  
 
 
         tc = torch.tensor(tumor_classes, device=MSK1ch.device)
         MSK1ch_bin = (torch.isin(MSK1ch, tc)).long()
-        gt = F.one_hot(MSK1ch_bin, num_classes=2).permute(0,3,1,2).float()[:,1:2]  # [B,1,H,W]
+        gt = F.one_hot(MSK1ch_bin, num_classes=2).permute(0,3,1,2).float()[:,1:2]  
 
         feats = model.forward_features(IMG)
         _, m1, _, _ = shape_loop(feats) 
@@ -137,7 +137,6 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
         plt.tight_layout()
         plt.savefig(save_path, dpi=150)
         plt.close(fig)
-        print(f"[saved")
         return
 
     model.eval()
@@ -163,7 +162,6 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
 
         x = cx[:, None, None] + r * torch.cos(theta[:, None, :])
         y = cy[:, None, None] + r * torch.sin(theta[:, None, :])
-
 
         x_pix = (x + 1) * 0.5 * (W - 1)
         y_pix = (y + 1) * 0.5 * (H - 1)
@@ -287,7 +285,6 @@ def vis_stage1_once(model, shape_loop, loader, device, save_path,
             plt.tight_layout()
             plt.savefig(str(path_spec), dpi=200)
             plt.close(fig)
-            print(f"[VIS-PARAM] saved: {path_spec}")
 
         return
 
@@ -320,7 +317,6 @@ def build_optimizer(model, adaptive_module, args):
     params.append({"params": prompt_gen_params, "lr": base_lr, "weight_decay": wd * 0.1})
     params.append({"params": semantic_aligner_params, "lr": base_lr * 0.1, "weight_decay": wd * 0.05})
 
-
     params.append({"params": adaptive_module.prompt_refiner.parameters(), "lr": base_lr * 0.2, "weight_decay": wd})
     params.append({"params": adaptive_module.anomaly_fuser.parameters(), "lr": base_lr * 0.2, "weight_decay": wd})
     params.append({"params": adaptive_module.threshold_module.parameters(), "lr": base_lr, "weight_decay": wd})
@@ -334,7 +330,6 @@ def build_optimizer(model, adaptive_module, args):
 def _set_bn_eval(m: nn.Module):
     import torch.nn as nn
     if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)):
-
         m.eval()
         m.track_running_stats = True
         m.momentum = 0.0
@@ -353,7 +348,6 @@ def bn_eval_all(*modules):
             m.apply(_set_bn_eval)
 
 def setup_freeze_for_epoch(model, adaptive_module, epoch, seg_warmup):
-
     bn_eval_all(
         model,
         getattr(model, "_backbone_decoder", None),
@@ -361,7 +355,6 @@ def setup_freeze_for_epoch(model, adaptive_module, epoch, seg_warmup):
         getattr(adaptive_module, "anomaly_detector", None),
         getattr(adaptive_module, "anomaly_fuser", None),
     )
-
 
     if epoch < seg_warmup:
         freeze_module_params(getattr(adaptive_module, "prompt_refiner", None), True)
@@ -500,14 +493,14 @@ def main():
                 continue
 
             IMG = IMG[mask].to(device, non_blocking=True)
-            MSK1ch = MSK1ch[mask].to(device, non_blocking=True).long().squeeze(1)  # [B,H,W]
+            MSK1ch = MSK1ch[mask].to(device, non_blocking=True).long().squeeze(1) 
 
             bs = IMG.shape[0]
             num_samples += bs
 
-            MSK1ch_bin = torch.isin(MSK1ch, tc).long()  # [B,H,W]
+            MSK1ch_bin = torch.isin(MSK1ch, tc).long()  
 
-            gt = MSK1ch_bin.float().unsqueeze(1)  # [B,1,H,W]
+            gt = MSK1ch_bin.float().unsqueeze(1)  
 
             feats = model.forward_features(IMG)
 
