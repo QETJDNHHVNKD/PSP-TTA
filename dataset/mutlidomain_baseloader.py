@@ -99,7 +99,7 @@ def baseloader(args):
 
         _single_dataset_list = json.load(open(json_path, encoding='utf8', errors='ignore'))
 
-        for _set_name, _set_path_info in _single_dataset_list.items():           #
+        for _set_name, _set_path_info in _single_dataset_list.items():           
             for _set_path in _set_path_info:
                 _sample_path_list[_set_name].append([os.path.join(args.data_path,_data_info['Dataset Path'], _set_path['USImage']),
                                                      os.path.join(args.data_path,_data_info['Dataset Path'], _set_path['Mask']),
