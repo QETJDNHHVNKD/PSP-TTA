@@ -42,7 +42,7 @@ def dice_soft_per(a, b, eps=1e-6):
     # a,b: [B,1,H,W] in [0,1]
     inter = (a * b).sum((1,2,3)) * 2.0
     denom = a.sum((1,2,3)) + b.sum((1,2,3)) + eps
-    return inter / denom              # [B]
+    return inter / denom           
 
 def dice_soft(a, b, eps=1e-6):
     return dice_soft_per(a, b, eps=eps).mean()
@@ -79,10 +79,8 @@ def appearance_aug(x, strength=1.0):
         sigma = (torch.rand(B, 1, 1, 1, device=device, dtype=dtype) * 0.03) * strength
         x2 = x2 + torch.randn_like(x2) * sigma
 
-
     if torch.rand(1).item() < 0.25 * float(min(1.0, strength)):
         k = 3
-     
         kernel = torch.ones(1, 1, k, k, device=device, dtype=dtype) / (k * k)
        
         C = x2.shape[1]
@@ -90,7 +88,6 @@ def appearance_aug(x, strength=1.0):
         x2 = F.conv2d(x2, kernel, padding=k//2, groups=C)
 
     return x2
-
 def random_translate_theta(B, device, max_px_frac=0.08):
     
     t = 2.0 * max_px_frac
@@ -107,7 +104,6 @@ def random_translate_theta(B, device, max_px_frac=0.08):
     theta_inv[:, 0, 2] = -tx
     theta_inv[:, 1, 2] = -ty
     return theta, theta_inv
-
 
 def random_scale_translate_theta(B, device, max_px_frac=0.08, scale_range=(0.8, 1.2)):
     t = 2.0 * max_px_frac
@@ -176,7 +172,6 @@ class MixBuffer:
         derm_take, self.derm = _split(self.derm, derm_bs)
         return us_take, derm_take
 
-
 def _bn_adapt_freeze_affine(m: nn.Module):
 
     if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)):
@@ -192,7 +187,7 @@ def _bn_adapt_freeze_affine(m: nn.Module):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_path", default=r"..\my_Dataset")
+    parser.add_argument("--data_path", default=r"..\Dataset")
     parser.add_argument("--data_configuration", default=r"..\dataset_config.yaml")
 
     parser.add_argument("--device", default="cuda")
@@ -320,9 +315,6 @@ def main():
     if hasattr(shape_loop, "mask_encoder"):
         set_requires_grad(shape_loop.mask_encoder, False)
 
-
-
-
     prior = GMMPrior.load(args.prior_path, device=str(device)).to(device)
     prior.eval()
     for p in prior.parameters():
@@ -339,8 +331,6 @@ def main():
         set_requires_grad(teacher_model, False)
         set_requires_grad(teacher_shape, False)
 
-
-
     optimizer = torch.optim.AdamW(
         [
             {"params": [p for p in model.parameters() if p.requires_grad], "lr": args.lr_backbone},
@@ -349,8 +339,6 @@ def main():
         weight_decay=args.weight_decay
     )
     scheduler = LinearWarmupCosineAnnealingLR(optimizer, warmup_epochs=args.warmup_epoch, max_epochs=args.max_epoch)
-
-
 
     def _to_rgb_uint8(x_chw: torch.Tensor):
         x = x_chw.detach().float().cpu()
@@ -394,7 +382,6 @@ def main():
 
         dice_us = dice_soft_per((m_us_up > 0.5).float(), gt_us).detach().cpu().numpy()
 
-
         img_d = img_d.to(device)
         feats_d = model.forward_features(img_d)
         _, m_d, _, _ = shape_loop(feats_d)
@@ -409,17 +396,13 @@ def main():
         if msk_d.ndim == 4:
             msk_d = msk_d.squeeze(1)
 
-
         gt_d  = (msk_d  > 0).float().unsqueeze(1)
-
-
 
         m_d_up = m_d
         if m_d_up.shape[-2:] != gt_d.shape[-2:]:
             m_d_up = F.interpolate(m_d_up, size=gt_d.shape[-2:], mode="bilinear", align_corners=False)
 
         dice_d = dice_soft_per((m_d_up > 0.5).float(), gt_d).detach().cpu().numpy()
-
 
         m_a_up, m_b_up = m_a, m_b
         if m_a_up.shape[-2:] != gt_d.shape[-2:]:
@@ -431,13 +414,11 @@ def main():
         dice_a = dice_soft_per((m_a_up > 0.5).float(), gt_d).detach().cpu().numpy()
         dice_b = dice_soft_per((m_b_up > 0.5).float(), gt_d).detach().cpu().numpy()
 
-
         keep_thr = 0.80
         max_save = 4
 
         robust = (dice_d >= keep_thr) & (dice_a >= keep_thr) & (dice_b >= keep_thr)
         robust_idx = np.where(robust)[0].tolist()
-
 
         if len(robust_idx) < max_save:
             score = np.minimum(np.minimum(dice_d, dice_a), dice_b)
@@ -450,16 +431,13 @@ def main():
         else:
             robust_idx = robust_idx[:max_save]
 
-
         from pathlib import Path
-
 
         save_root = Path(save_root)
         us_dir = save_root / "US_single"
         derm_dir = save_root / "DERM_single"
         us_dir.mkdir(parents=True, exist_ok=True)
         derm_dir.mkdir(parents=True, exist_ok=True)
-
 
         B_us = min(4, img_us.shape[0])
         for i in range(B_us):
@@ -471,7 +449,6 @@ def main():
             Image.fromarray(us_img).save(str(base) + "_orig.png")
             Image.fromarray(us_gt_img).save(str(base) + "_GT.png")
             Image.fromarray(us_pd_img).save(str(base) + "_Pred.png")
-
 
         if len(robust_idx) == 0:
             score = np.minimum(np.minimum(dice_d, dice_a), dice_b)
@@ -520,7 +497,6 @@ def main():
             derm_avg = float(np.mean([dice_d[j] for j in robust_idx]))
         else:
             derm_avg = float(dice_d.mean()) if len(dice_d) > 0 else float("nan")
-
 
 
     def _parse_thrs(s: str):
@@ -572,10 +548,10 @@ def main():
                 msk = MSK1ch[mask_us]
                 if msk.ndim == 4:
                     msk = msk.squeeze(1)
-                gt = (msk > 0).float().unsqueeze(1)  # [B,1,H,W]
+                gt = (msk > 0).float().unsqueeze(1)  
 
                 feats = model.forward_features(img)
-                _, m, _, _ = shape_loop(feats)  # [B,1,h,w]
+                _, m, _, _ = shape_loop(feats)  
                 if m.shape[-2:] != gt.shape[-2:]:
                     m = F.interpolate(m, size=gt.shape[-2:], mode="bilinear", align_corners=False)
 
@@ -589,23 +565,23 @@ def main():
                 msk = MSK1ch[mask_d]
                 if msk.ndim == 4:
                     msk = msk.squeeze(1)
-                gt = (msk > 0).float().unsqueeze(1)  # [B,1,H,W]
-                fg_ratio = gt.mean(dim=(1, 2, 3)).detach().cpu().numpy()  # [B]
+                gt = (msk > 0).float().unsqueeze(1) 
+                fg_ratio = gt.mean(dim=(1, 2, 3)).detach().cpu().numpy()  
 
                 feats = model.forward_features(img)
                 _, m, _, _ = shape_loop(feats)
                 if m.shape[-2:] != gt.shape[-2:]:
                     m = F.interpolate(m, size=gt.shape[-2:], mode="bilinear", align_corners=False)
 
-                # 1) thr 曲线
+              
                 for t0 in thrs:
                     d0 = dice_soft_per((m > t0).float(), gt).detach().cpu().numpy().tolist()
                     derm_dices[t0].extend(d0)
 
-                # 2) buckets + worst_k (只对 main_thrs)
+             
                 for t1 in main_thrs:
                     pd = (m > t1).float()
-                    d1 = dice_soft_per(pd, gt).detach().cpu().numpy()  # [B]
+                    d1 = dice_soft_per(pd, gt).detach().cpu().numpy() 
                     for i in range(len(d1)):
                         fr = float(fg_ratio[i])
                         if fr < 0.25:
@@ -616,7 +592,7 @@ def main():
                             bucket = "large"
                         derm_bucket[t1][bucket].append(float(d1[i]))
 
-                        rgb = _to_rgb_uint8(img[i])  # HWC uint8
+                        rgb = _to_rgb_uint8(img[i]) 
                         gt01 = (gt[i, 0].detach().cpu().numpy() > 0.5)
                         pd01 = (pd[i, 0].detach().cpu().numpy() > 0.5)
                         tag = f"{bucket}_{i}"
@@ -667,11 +643,11 @@ def main():
         img_us = img_us.to(device, non_blocking=True)
         msk1ch_us = msk1ch_us.to(device, non_blocking=True).long()
         if msk1ch_us.ndim == 4:
-            msk1ch_us = msk1ch_us.squeeze(1)  # [B,H,W]
+            msk1ch_us = msk1ch_us.squeeze(1) 
 
         msk_bin = (msk1ch_us > 0).long()
 
-        gt = msk_bin.float().unsqueeze(1)  # [B,1,H,W]
+        gt = msk_bin.float().unsqueeze(1) 
 
         if detach_backbone:
             with torch.no_grad():
@@ -681,14 +657,12 @@ def main():
 
         z1, m1, z2, m2 = shape_loop(feats)
 
-
         if m1.shape[-2:] != gt.shape[-2:]:
             m1_up = F.interpolate(m1, size=gt.shape[-2:], mode="bilinear", align_corners=False)
         else:
             m1_up = m1
 
         term_seg = F.binary_cross_entropy(m1_up.clamp(1e-6, 1-1e-6), gt) + soft_dice_loss(m1_up, gt)
-
 
         z_gt = shape_loop.mask_encoder(gt)
         term_cons = F.mse_loss(z1, z_gt.detach())
@@ -735,8 +709,8 @@ def main():
 
     def chan_vese_loss(img, mask, eps=1e-6):
 
-        I = img  # (B,3,H,W)  用于 c1/c0、pix_data
-        Ig = img.mean(dim=1, keepdim=True)  # (B,1,H,W)  专门给边缘项用
+        I = img  
+        Ig = img.mean(dim=1, keepdim=True)  
 
         kx = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], device=img.device, dtype=img.dtype).view(1, 1, 3, 3)
         ky = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], device=img.device, dtype=img.dtype).view(1, 1, 3, 3)
@@ -744,11 +718,11 @@ def main():
         C = img.shape[1]
         kxC = kx.repeat(C, 1, 1, 1)
         kyC = ky.repeat(C, 1, 1, 1)
-        gx = F.conv2d(img, kxC, padding=1, groups=C)  # [B,C,H,W]
+        gx = F.conv2d(img, kxC, padding=1, groups=C) 
         gy = F.conv2d(img, kyC, padding=1, groups=C)
-        g = torch.sqrt((gx * gx + gy * gy).sum(dim=1, keepdim=True) + 1e-6)  # [B,1,H,W]
+        g = torch.sqrt((gx * gx + gy * gy).sum(dim=1, keepdim=True) + 1e-6)  
         g = g / (g.mean(dim=(2, 3), keepdim=True) + 1e-6)
-        w_edge = g.clamp(0.0, 5.0).detach()  # [B,1,H,W]
+        w_edge = g.clamp(0.0, 5.0).detach()  
 
         m = mask.clamp(0.0, 1.0)
         m_sum = m.sum(dim=(2, 3), keepdim=True).clamp_min(eps)
@@ -757,19 +731,19 @@ def main():
         c1 = (I * m).sum(dim=(2, 3), keepdim=True) / m_sum
         c0 = (I * (1.0 - m)).sum(dim=(2, 3), keepdim=True) / bg_sum
 
-        loss_in = ((I - c1) ** 2 * m * w_edge).mean(dim=(1, 2, 3))  # [B]
-        loss_out = ((I - c0) ** 2 * (1.0 - m) * w_edge).mean(dim=(1, 2, 3))  # [B]
+        loss_in = ((I - c1) ** 2 * m * w_edge).mean(dim=(1, 2, 3))  
+        loss_out = ((I - c0) ** 2 * (1.0 - m) * w_edge).mean(dim=(1, 2, 3))  
         loss_per = loss_in + loss_out
 
 
-        g_stop = (1.0 / (1.0 + 10.0 * w_edge)).detach()  # [B,1,H,W]
+        g_stop = (1.0 / (1.0 + 10.0 * w_edge)).detach()  
 
         m = mask.clamp(0.0, 1.0)
         mx = F.pad(m[:, :, :, 1:] - m[:, :, :, :-1], (0, 1, 0, 0))
         my = F.pad(m[:, :, 1:, :] - m[:, :, :-1, :], (0, 0, 0, 1))
-        grad_m = torch.sqrt(mx * mx + my * my + 1e-12)  # [B,1,H,W]
+        grad_m = torch.sqrt(mx * mx + my * my + 1e-12)  
 
-        len_per = (g_stop * grad_m).mean(dim=(1, 2, 3))  # [B]
+        len_per = (g_stop * grad_m).mean(dim=(1, 2, 3))  
         loss_per = loss_per + 0.20 * len_per
 
         return loss_per
@@ -801,7 +775,6 @@ def main():
 
         img_d = img_d.to(device, non_blocking=True)
 
-        # two appearance views (a stronger, b weaker)
         x_data = img_d            
         x_a = appearance_aug(img_d, strength=0.6)
         x_b = appearance_aug(img_d, strength=0.3)
@@ -829,14 +802,14 @@ def main():
         z1b, m1b, _, _ = shape_loop(feats_b)
 
         p_det = m1d.detach().clamp(1e-4, 1.0 - 1e-4)
-        conf_pix = torch.maximum(p_det, 1.0 - p_det)  # [B,1,h,w]
+        conf_pix = torch.maximum(p_det, 1.0 - p_det) 
 
         band = ((p_det > 0.2) & (p_det < 0.8)).float()
-        band_sum = band.sum(dim=(1, 2, 3))  # [B]
+        band_sum = band.sum(dim=(1, 2, 3)) 
 
         conf_band = (conf_pix * band).sum(dim=(1, 2, 3)) / band_sum.clamp_min(1.0)
         conf_full = conf_pix.mean(dim=(1, 2, 3))
-        conf = torch.where(band_sum > 0, conf_band, conf_full)  # [B]
+        conf = torch.where(band_sum > 0, conf_band, conf_full)  
 
        
         agree = 1.0 - (m1a.detach() - m1b.detach()).abs().mean(dim=(1, 2, 3))
@@ -844,13 +817,12 @@ def main():
 
         w_conf = (1.0 - conf).detach()
 
-        fg_softbin = torch.sigmoid((m1d-0.5) * args.fg_sharp).mean(dim=(1, 2, 3))  # [B]  (with grad)
-        fg_det = fg_softbin.detach()  # [B]
+        fg_softbin = torch.sigmoid((m1d-0.5) * args.fg_sharp).mean(dim=(1, 2, 3)) 
+        fg_det = fg_softbin.detach() 
 
         bad_small = (fg_det < args.fg_lo)
         bad_big = (fg_det > args.fg_hi_bad)
         bad = bad_small | bad_big
-
 
         if args.w_geo > 0:
             B = x_b.shape[0]
@@ -868,7 +840,7 @@ def main():
             ones = torch.ones((B, 1, x_b.shape[-2], x_b.shape[-1]), device=x_b.device)
             valid_g = warp_with_theta(ones, theta, out_hw=x_b.shape[-2:], padding_mode="zeros")
             valid_back = warp_with_theta(valid_g, theta_inv, out_hw=m1b.shape[-2:], padding_mode="zeros")
-            w = (valid_back > 0.999).float()  # [B,1,h,w]
+            w = (valid_back > 0.999).float()
 
             m_g_back = warp_with_theta(m_g, theta_inv, out_hw=m1b.shape[-2:], padding_mode="zeros")
 
@@ -896,7 +868,7 @@ def main():
 
         p_d, cx_d, cy_d, _, _, _ = shape_loop.renderer.decode(z1d)
         p_b, cx_b, cy_b, _, _, _ = shape_loop.renderer.decode(z1b)
-        pose_d = torch.cat([p_d, cx_d, cy_d], dim=1)   # [B,3]
+        pose_d = torch.cat([p_d, cx_d, cy_d], dim=1)   
         pose_b = torch.cat([p_b, cx_b, cy_b], dim=1)
         pose_per = 0.5 * (
             (pose_d - pose_b.detach()).pow(2).mean(dim=1) +
@@ -928,7 +900,7 @@ def main():
 
         p = m1b.clamp(1e-6, 1.0 - 1e-6)
         ent_per = (-(p * torch.log(p) + (1.0 - p) * torch.log(1.0 - p))).mean(dim=(1, 2, 3))  # [B]
-        w_ent = torch.where(bad, torch.zeros_like(ent_per), torch.ones_like(ent_per))  # bad样本不加这项，避免把坍塌“硬化”
+        w_ent = torch.where(bad, torch.zeros_like(ent_per), torch.ones_like(ent_per)) 
         l_ent = (w_ent * ent_per).mean()
 
 
@@ -960,10 +932,9 @@ def main():
         cv_feat_per = deep_chan_vese_loss(feats_data[1], m1d)  # f3
         cv_per = 0.8 * cv_pix_per + 0.2 * cv_feat_per
 
-
         fg_big_start = 0.35
         w_big = 1.0 + args.cv_big_k * ((fg_det - fg_big_start).clamp(min=0.0) / (1.0 - fg_big_start))
-        w_big = w_big.clamp(max=1.0 + args.cv_big_k)  # safety cap
+        w_big = w_big.clamp(max=1.0 + args.cv_big_k) 
         l_cv = (w_big * cv_per).mean()
 
         stats = {
@@ -1012,7 +983,7 @@ def main():
             _, mT, _, _ = teacher_shape(feats_t)
             prob = mT.clamp(0.0, 1.0)
 
-            fg_ratio = (prob > 0.5).float().mean(dim=(1, 2, 3))  # [B]
+            fg_ratio = (prob > 0.5).float().mean(dim=(1, 2, 3))  
 
 
             valid = (fg_ratio >= 0.001) & (fg_ratio <= 0.95)
@@ -1021,7 +992,7 @@ def main():
             valid4 = valid.float().view(-1, 1, 1, 1)
 
 
-            conf_pix = torch.maximum(prob, 1.0 - prob)  # [B,1,H,W]
+            conf_pix = torch.maximum(prob, 1.0 - prob) 
 
 
             w0 = ((conf_pix - args.pl_thr) / (1.0 - args.pl_thr)).clamp(0.0, 1.0)
@@ -1067,7 +1038,7 @@ def main():
 
         wsum = w.sum((1, 2, 3))
 
-        has = (wsum > 0).float()  # [B]
+        has = (wsum > 0).float() 
 
         if has.sum() < 0.5:
 
@@ -1099,7 +1070,7 @@ def main():
 
     best_score = -1e9
     best_epoch = -1
-    best_path = Path(args.save_dir) / "stage2_best.pth"
+    best_path = Path(args.save_dir) / ".pth"
 
     for epoch in range(args.max_epoch):
         model.train()
@@ -1148,7 +1119,7 @@ def main():
         mixbuf = MixBuffer()
         it = iter(train_loader)
 
-        pbar = tqdm(total=args.steps_per_epoch, desc=f"Stage2 Epoch {epoch}")
+        pbar = tqdm(total=args.steps_per_epoch, desc=f"Epoch {epoch}")
         step = 0
 
         loss_meter = {
@@ -1220,7 +1191,7 @@ def main():
 
                 lpl = torch.tensor(0.0, device=device)
                 st_pl = {"pl": torch.tensor(0.0, device=device), "pl_ratio": torch.tensor(0.0, device=device)}
-                rp = 0.0  # NEW: default
+                rp = 0.0 
                 if args.use_pl and (epoch >= args.pl_start_epoch):
                     lpl, st_pl = pseudo_label_loss(x_a, x_b)
 
@@ -1267,26 +1238,9 @@ def main():
 
         pbar.close()
         scheduler.step()
-
-
         denom = max(1, step)
 
-        msg = (
-            f"[Epoch {epoch}] "
-            f"ru={loss_meter['ru'] / denom:.3f} | "
-            f"us={loss_meter['us'] / denom:.4f} | unsup={loss_meter['unsup'] / denom:.4f} "
-            f"(inv={loss_meter['inv'] / denom:.4f}, cons={loss_meter['cons'] / denom:.4f}, "
-            f"geo={loss_meter['geo'] / denom:.4f}, prior={loss_meter['prior'] / denom:.4f}, "
-            f"nll={loss_meter['nll_mean'] / denom:.2f}, conf={loss_meter['conf'] / denom:.3f}, "
-            f"lam={loss_meter['lam'] / denom:.4f}, cv={loss_meter['cv'] / denom:.4f}, "
-            f"fg={loss_meter['fg'] / denom:.3f}, bad={loss_meter['bad_ratio'] / denom:.3f}, "
-            f"area={loss_meter['area'] / denom:.4f}) "
-            f"| pl={loss_meter['pl'] / denom:.4f} (ratio={loss_meter['pl_ratio'] / denom:.3f}, rp={loss_meter['rp'] / denom:.3f})"
-            f"ucoef={ucoef:.3f} | "
-        )
-
-        print(msg)
-
+    
         def _pick_domain_samples(loader, want_derm: bool, epoch: int, max_tries=200, n=4, fg_range=None):
 
 
@@ -1392,9 +1346,7 @@ def main():
         if (epoch % args.eval_every) == 0:
             metrics = eval_full_val(epoch, save_root=os.path.join(args.save_dir, "val_eval"))
 
-
             score = metrics.get("derm_large_0.50", float("nan"))
-
 
             if (score == score) and (score > best_score):
                 best_score = score
@@ -1417,7 +1369,6 @@ def main():
 
                 torch.save(ckpt_best, best_path)
 
-
         ckpt_out = {
             "model": model.state_dict(),
             "shape_loop": shape_loop.state_dict(),
@@ -1431,8 +1382,7 @@ def main():
             ckpt_out["teacher_model"] = teacher_model.state_dict()
             ckpt_out["teacher_shape"] = teacher_shape.state_dict()
 
-
-        latest_path = Path(args.save_dir) / "stage2_latest.pth"
+        latest_path = Path(args.save_dir) / "latest.pth"
         torch.save(ckpt_out, latest_path)
 
 
