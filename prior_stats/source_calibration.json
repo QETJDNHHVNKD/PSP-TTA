@@ -1,1 +1,15 @@
-
+{
+  "schema_version": 1,
+  "status": "MUST_BE_GENERATED_FROM_SOURCE_VALIDATION_CODES_BEFORE_SUBMISSION",
+  "source_domains": [
+    "BUSI",
+    "TN3K"
+  ],
+  "K": 8,
+  "shape_prior_dimension": 17,
+  "covariance_type": "diag",
+  "q5_src": null,
+  "q95_src": null,
+  "generated_by": "scripts/fit_source_prior.py",
+  "note": "Do not replace q5_src/q95_src with guessed values."
+}
