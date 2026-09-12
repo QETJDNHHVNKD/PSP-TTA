@@ -1,1 +1,46 @@
+experiment:
+  name: psp_tta_public_only
+  source_domains: [BUSI, TN3K]
+  exclude_private_gallbladder: true
+  target_domains: [ISIC, PH2, HAM10000]
+  target_labels_for_tuning: false
+  independent_runs: 3
 
+manuscript_fixed:
+  source_pool_counts:
+    BUSI: 260
+    TN3K: 205
+  model:
+    backbone: resnet34
+    input_size: [224, 224]
+  source_training:
+    optimizer: AdamW
+    learning_rate: 0.01
+    batch_size: 16
+    weight_decay: 0.001
+    scheduler: cosine_annealing
+  polar_fourier:
+    K: 8
+    latent_dim_D: 20
+    shape_prior_dim: 17
+    spectral_decay: "1/k"
+  source_prior:
+    covariance_type: diag
+    calibration_percentiles: [5, 95]
+    exclude_from_shape_prior: [pf, cx, cy]
+  test_time:
+    default_steps_T: 10
+    update_variable: "per-sample polar-Fourier latent z only"
+    freeze_network_parameters: true
+    freeze_normalization_statistics: true
+
+release_defaults_inferred:
+  seeds: [2024, 2025, 2026]
+  source_validation_fraction: 0.20
+  stratify_split_by_source_domain: true
+  gmm_components_per_source: 4
+  source_mixture_weighting: proportional_to_training_count
+
+artifacts:
+  splits_dir: splits/generated
+  prior_stats_file: prior_stats/source_calibration.json
