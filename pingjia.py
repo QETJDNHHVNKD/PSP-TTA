@@ -18,7 +18,7 @@ def imread_any(fp: Path, as_float: bool = True) -> np.ndarray:
         arr = np.load(str(fp))
         return arr.astype(np.float32, copy=False) if as_float else arr
     elif ext in SUPPORTED_IMG_EXTS:
-        img = Image.open(fp).convert("L")  # 灰度
+        img = Image.open(fp).convert("L") 
         arr = np.array(img)
         if as_float:
             arr = arr.astype(np.float32)
