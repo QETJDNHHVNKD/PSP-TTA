@@ -1,0 +1,26 @@
+BUSI:
+  Dataset Cohort: Dataset_Breast.json
+  Dataset ID: breast
+  Dataset Path: Dataset_Breast
+  Dataset Sequence: 0
+
+GALLBLADDER:
+  Dataset Cohort: Dataset_Gallbladder.json
+  Dataset ID: gallbladder
+  Dataset Path: Dataset_Gallbladder
+  Dataset Sequence: 1
+
+TUSI:
+  Dataset Cohort: Dataset_Thyroid.json
+  Dataset ID: thyroid
+  Dataset Path: Dataset_Thyroid
+  Dataset Sequence: 2
+
+SKIN:
+  Dataset Cohort: Dataset_Skin.json
+  Dataset ID: skin
+  Dataset Path: Dataset_Skin
+  Dataset Sequence: 3
+
+
+
